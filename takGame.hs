@@ -34,6 +34,7 @@ beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
 beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
+
 -- juegoValido determina si el juego es un juego valido, ejemplo: que en el tablero 3x3 no tenga mas de 9
 juegoValido :: TakGame -> Bool
 juegoValido juego
@@ -49,19 +50,29 @@ caracterPosicion juego posicion
     | otherwise = (fst ((fst juego) !! posicion))
 
 
+impresionJuego3x3 :: TakGame -> String
+impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++'\n': 
+    (caracterPosicion juego 3) ++ (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ '\n':
+    (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++ (caracterPosicion juego 8)]
 
-showGame :: TakGame -> String
+impresionJuego4x4 :: TakGame -> String
+impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++ (caracterPosicion juego 3) ++'\n': 
+     (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++'\n':
+     (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
+     (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15)]
+
+printStrings :: [[String]] -> IO ()
+printStrings = mapM_ (mapM_ putStrLn)
+
+showGame :: TakGame -> IO()
 showGame juego 
     | fst juego == [] = error "juego vacio"
     --juego 3x3
-    | length (fst juego) == 9 =   (caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++'\n': 
-    (caracterPosicion juego 3) ++ (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ '\n':
-    (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++ (caracterPosicion juego 8) ++ show 'n'
+    | length (fst juego) == 9 =  printStrings [[impresionJuego3x3 juego]]
     --juego 4x4
-    | length (fst juego) == 16 = show ( (caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++ (caracterPosicion juego 3) ++'\n': 
-     (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++'\n':
-     (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
-     (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15))
+    | length (fst juego) == 16 = printStrings [[impresionJuego4x4 juego]]
+    
+    | otherwise = error "juego no valido para mostrar"
     
     
 
