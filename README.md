@@ -21,7 +21,7 @@ terminado, se debe retornar una lista vacía.
 de juego dado. Esto es independiente de si el juego está terminado o no.
 
 • showGame :: TakGame -> String: Convierte el estado de juego a un texto que puede ser impreso en la
-consola para mostrar el tablero y demás información de la partida.
+consola para mostrar el tablero y demás información de la partida. (Terminado)
 
 • showAction :: TakAction -> String: Convierte una acción a un texto que puede ser impreso en la
 consola para mostrarla.
