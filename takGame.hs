@@ -5,17 +5,28 @@ import System.Random (randomRIO)
 import Data.Char
 
 
+
+
+
 type TakGame = ([Casillero], TakPlayer)
-type Casillero = ([Char], (Int, Int))
+type Casillero = ([Char], (Integer, Integer))
 
 data Direccion = Arriba | Abajo | Izquierda | Derecha
 
-data TakAction = Insertar (Int, Int) Bool | Mover (Int, Int) (Int, Int) | Desapilar (Int, Int) [Int] Direccion
+data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
 
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
 coordenadasCasillero3x3 = map (\n -> ("",divMod n 3)) [0..8]
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
+
+-- ejemplo de takGame
+juego3x3 = ([("o",(0,0)) ,("o",(0,1)),("o",(0,2)),("o",(1,0)),("o",(1,1)),("o",(1,2)),("o",(2,0)),("o",(2,1)),("o",(2,2))],WhitePlayer)
+
+juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], BlackPlayer)
+
+juegoVacio = ([],BlackPlayer)
+
 
 beginning3x3 :: TakGame
 beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
@@ -23,7 +34,40 @@ beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
 beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
+-- juegoValido determina si el juego es un juego valido, ejemplo: que en el tablero 3x3 no tenga mas de 9
+juegoValido :: TakGame -> Bool
+juegoValido juego
+    | length (fst juego) == 9 = True
+    | length (fst juego) == 16 = True
+    | otherwise = False
+
+-- caracterPosicion devuelve el caracter en una posicion dada
+caracterPosicion :: TakGame -> Int -> String
+caracterPosicion juego posicion
+    | (juegoValido juego) == False = error "juego no valido"
+    | posicion < 0 || posicion > 16 = error "posicion no valida"
+    | otherwise = (fst ((fst juego) !! posicion))
+
+
+
+showGame :: TakGame -> String
+showGame juego 
+    | fst juego == [] = error "juego vacio"
+    --juego 3x3
+    | length (fst juego) == 9 =   (caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++'\n': 
+    (caracterPosicion juego 3) ++ (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ '\n':
+    (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++ (caracterPosicion juego 8) ++ show 'n'
+    --juego 4x4
+    | length (fst juego) == 16 = show ( (caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++ (caracterPosicion juego 3) ++'\n': 
+     (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++'\n':
+     (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
+     (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15))
+    
+    
+
+
 {--
+
 
 zip (fst beginning3x3) coordenadasCasillero3x3
 [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
