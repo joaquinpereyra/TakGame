@@ -1,4 +1,4 @@
-import Data.Maybe (fromJust, listToMaybe)
+import Data.Maybe (fromJust, listToMaybe) 
 import Data.List (elemIndex)
 import Data.List
 import System.Random (randomRIO)
@@ -9,6 +9,7 @@ import Data.Char
 
 
 type TakGame = ([Casillero], TakPlayer)
+
 type Casillero = ([Char], (Integer, Integer))
 
 data Direccion = Arriba | Abajo | Izquierda | Derecha
@@ -17,16 +18,18 @@ data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (In
 
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
-coordenadasCasillero3x3 = map (\n -> ("",divMod n 3)) [0..8]
+coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 
--- ejemplo de takGame
-juego3x3 = ([("o",(0,0)) ,("o",(0,1)),("o",(0,2)),("o",(1,0)),("o",(1,1)),("o",(1,2)),("o",(2,0)),("o",(2,1)),("o",(2,2))],WhitePlayer)
+-- ejemplo de TakGame
+juego3x3 = ([("",(0,0)) ,("o",(0,1)),("o",(0,2)),("o",(1,0)),("o",(1,1)),("o",(1,2)),("o",(2,0)),("",(2,1)),("",(2,2))],WhitePlayer)
 
+cCerc = [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]  
 juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], BlackPlayer)
 
 juegoVacio = ([],BlackPlayer)
 
+casilleroVacio = [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
 
 beginning3x3 :: TakGame
 beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
@@ -48,6 +51,86 @@ caracterPosicion juego posicion
     | (juegoValido juego) == False = error "juego no valido"
     | posicion < 0 || posicion > 16 = error "posicion no valida"
     | otherwise = (fst ((fst juego) !! posicion))
+
+obtenerCasillero :: TakGame -> [Casillero]
+obtenerCasillero juego
+    | (fst juego) == [] = []
+    | otherwise = (fst juego)
+
+juegoSinComenzar :: TakGame -> Bool
+juegoSinComenzar ((x:xs),y)
+    | (x:xs) == [] = True
+    | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
+    | otherwise = True
+
+
+
+
+actions :: TakGame -> [(TakPlayer, [TakAction])]
+actions juego
+    | activePlayer juego == BlackPlayer = []
+    | (juegoSinComenzar juego) == True = [( activePlayer juego, generarAccionesInsertar (obtenerCasillero juego))]
+
+    
+--zip players [if f then [] else [TakAction], []] --TODO
+
+generarAccionesInsertar :: [Casillero] -> [TakAction]
+generarAccionesInsertar [] = []
+generarAccionesInsertar ((caracteres, (a,b) ):xs)
+    | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
+    | otherwise = []
+
+
+
+casillasCercanasPosibles :: [Casillero] -> [Casillero]
+casillasCercanasPosibles [] = []
+casillasCercanasPosibles ((caracteres, (a, b)):xs) = if (caracteres == "" || last caracteres == 'x' || last caracteres == 'o' ) then
+                                                        (caracteres, (a, b)) : (casillasCercanasPosibles xs)
+                                                    else
+                                                        casillasCercanasPosibles xs
+
+casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
+casillasCercanas [] _ = []
+casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) = if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
+                                                                    [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
+                                                                else
+                                                                    casillasCercanas xs (caracteres2, (x, y))
+ 
+
+
+activePlayer :: TakGame -> TakPlayer
+activePlayer g = WhitePlayer 
+
+
+
+
+
+{--
+
+next :: TakGame -> (TakPlayer, TakAction) -> TakGame
+next _ _ = TakGame True --TODO
+
+result :: TakGame -> [(TakPlayer, Int)]
+result f = zip players (if f then [] else [1, -1]) --TODO
+
+score :: TakGame -> [(TakPlayer, Int)]
+score _ = zip players [0, 0] --TODO
+
+
+
+showAction :: TakAction -> String
+showAction a = show a --TODO
+   
+readAction :: String -> TakAction
+readAction = read --TODO
+
+activePlayer :: TakGame -> Maybe TakPlayer
+activePlayer g = listToMaybe [p | (p, as) <- actions g, not (null as)]
+
+players :: [TakPlayer]
+players = [minBound..maxBound]
+
+--}
 
 
 impresionJuego3x3 :: TakGame -> String
@@ -73,8 +156,37 @@ showGame juego
     | length (fst juego) == 16 = printStrings [[impresionJuego4x4 juego]]
     
     | otherwise = error "juego no valido para mostrar"
-    
-    
+
+
+putStrLn2 :: String -> IO ()
+putStrLn2 = putStr . (++ "\n")
+
+put4times :: String -> IO()
+put4times str
+    = do putStrLn2 str
+         putStrLn2 str
+         putStrLn2 str
+         putStrLn2 str
+
+read2lines :: IO()
+read2lines 
+    = do getLine
+         getLine
+         putStrLn2 "two lines read"
+
+copy :: IO()
+copy =
+    do line <- getLine
+       putStrLn2 line
+       copy
+
+copyN :: Integer -> IO()
+copyN n = if n<= 0 then return() else do line <- getLine
+                                         putStrLn line
+                                         copyN (n-1)
+
+
+
 
 
 {--
