@@ -4,18 +4,31 @@ import Data.List
 import System.Random (randomRIO)
 import Data.Char
 
-
 type TakGame = ([Casillero], TakPlayer)
-type Casillero = ([Char], (Int, Int))
+
+type Casillero = ([Char], (Integer, Integer))
 
 data Direccion = Arriba | Abajo | Izquierda | Derecha
 
-data TakAction = Insertar (Int, Int) Bool | Mover (Int, Int) (Int, Int) | Desapilar (Int, Int) [Int] Direccion
-
+data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
+-- bool insertar True = Pared
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
-coordenadasCasillero3x3 = map (\n -> ("",divMod n 3)) [0..8]
+coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
+
+-- ejemplo de TakGame
+juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
+
+juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],WhitePlayer)
+
+cCerc = [("",(0,0)),("X",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
+
+juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], BlackPlayer)
+
+juegoVacio = ([],BlackPlayer)
+
+casilleroVacio = [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
 
 beginning3x3 :: TakGame
 beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
@@ -23,44 +36,278 @@ beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
 beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
-{--
 
+-- juegoValido determina si el juego es un juego valido, ejemplo: que en el tablero 3x3 no tenga mas de 9
+juegoValido :: TakGame -> Bool
+juegoValido juego
+    | length (fst juego) == 9 = True
+    | length (fst juego) == 16 = True
+    | otherwise = False
+
+-- caracterPosicion devuelve el caracter en una posicion dada
+caracterPosicion :: TakGame -> Int -> String
+caracterPosicion juego posicion
+    | (juegoValido juego) == False = error "juego no valido"
+    | posicion < 0 || posicion > 16 = error "posicion no valida"
+    | otherwise = (fst ((fst juego) !! posicion))
+
+obtenerCasillero :: TakGame -> [Casillero]
+obtenerCasillero juego
+    | (fst juego) == [] = []
+    | otherwise = (fst juego)
+
+juegoSinComenzar :: TakGame -> Bool
+juegoSinComenzar ((x:xs),y)
+    | (x:xs) == [] = True
+    | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
+    | otherwise = True
+
+
+
+
+actions :: TakGame -> [(TakPlayer, [TakAction])]
+actions juego = [(activePlayer juego, (generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego))) ++ (generarAccionesInsertar (obtenerCasillero juego)))) , (nonActivePlayer juego, [])]
+    
+    
+    
+    
+--    [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego)))), (nonActivePlayer juego, [])]
+--     | (juegoSinComenzar juego) = [(activePlayer juego, generarAccionesInsertar (obtenerCasillero juego)), (nonActivePlayer juego, [])]  
+--zip players [if f then [] else [TakAction], []] --TODO
+
+generarAccionesInsertar :: [Casillero] -> [TakAction]
+generarAccionesInsertar [] = []
+generarAccionesInsertar ((caracteres, (a,b) ):xs)
+    | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
+    | otherwise = generarAccionesInsertar xs
+
+
+generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
+generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
+generarAccionesMover [] = []
+
+
+f2 :: a -> [a] ->[(a,a)]
+f2 a [] = []
+f2 a (h:t) = (a,h):(f2 a t)
+
+f3 :: [a] -> a -> [(a,a)]
+f3 [] a = []
+f3 (x:xs) a = (x,a): f3 xs a
+
+
+filtrarMovimientos :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
+filtrarMovimientos WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'x' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs)
+filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'o' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs) 
+
+
+
+
+casillasParaMover :: [Casillero] -> [(Casillero, Casillero)]
+casillasParaMover [] = []
+casillasParaMover ((caracteres, (a, b)):xs) = (f2 (caracteres, (a, b)) (casillasCercanasPosibles (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b))))) ++ (f3 (casillasCercanasPosibles (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) (caracteres, (a, b))) ++ casillasParaMover xs
+
+
+
+
+
+casillasCercanasPosibles :: [Casillero] -> [Casillero]
+casillasCercanasPosibles [] = []
+casillasCercanasPosibles ((caracteres, (a, b)):xs) = if (caracteres == "" || last caracteres == 'x' || last caracteres == 'o' ) then
+                                                        (caracteres, (a, b)) : (casillasCercanasPosibles xs)
+                                                    else
+                                                        casillasCercanasPosibles xs
+
+
+casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
+casillasCercanas [] _ = []
+casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) = if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
+                                                                    [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
+                                                                else
+                                                                    casillasCercanas xs (caracteres2, (x, y))
+ 
+
+
+activePlayer :: TakGame -> TakPlayer
+activePlayer (g, WhitePlayer) = WhitePlayer 
+activePlayer (g, BlackPlayer) = BlackPlayer 
+
+nonActivePlayer :: TakGame -> TakPlayer
+nonActivePlayer (g, WhitePlayer) = BlackPlayer
+nonActivePlayer (g, BlackPlayer) = WhitePlayer
+
+   
+
+
+{--
+next :: TakGame -> (TakPlayer, TakAction) -> TakGame
+next _ _ = TakGame True --TODO
+result :: TakGame -> [(TakPlayer, Int)]
+result f = zip players (if f then [] else [1, -1]) --TODO
+score :: TakGame -> [(TakPlayer, Int)]
+score _ = zip players [0, 0] --TODO
+readAction :: String -> TakAction
+readAction = read --TODO
+activePlayer :: TakGame -> Maybe TakPlayer
+activePlayer g = listToMaybe [p | (p, as) <- actions g, not (null as)]
+players :: [TakPlayer]
+players = [minBound..maxBound]
+--}
+
+
+impresionJuego3x3 :: TakGame -> String
+impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++'\n': 
+    (caracterPosicion juego 3) ++ (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ '\n':
+    (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++ (caracterPosicion juego 8)]
+
+impresionJuego4x4 :: TakGame -> String
+impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++ (caracterPosicion juego 3) ++'\n': 
+     (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++'\n':
+     (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
+     (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15)]
+
+
+showGame :: TakGame -> String
+showGame juego 
+    | fst juego == [] = error "juego vacio"
+    --juego 3x3
+    | length (fst juego) == 9 =  impresionJuego3x3 juego
+    --juego 4x4
+    | length (fst juego) == 16 = impresionJuego4x4 juego
+    
+    | otherwise = error "juego no valido para mostrar"    
+
+showAction :: TakAction -> String
+showAction (Insertar (x, y) pared) = if (pared) then
+                                        "||Se inserta una pared en " ++ (show (x,y))
+                                    else
+                                        "||Se inserta una ficha plana en " ++ (show (x,y))
+
+showAction (Mover (x, y) (x2, y2)) = "||Se mueve de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2))
+
+showAction (Desapilar (x,y) cantidad direccion) = "Se desapila desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " 
+
+showAction2 :: [TakAction] -> String
+showAction2 [] = "no hay mas acciones para mostrar "
+showAction2 (x:xs) = (showAction x) ++ (showAction2 xs)
+
+
+showAction3 :: [(TakPlayer, [TakAction])] -> String
+showAction3 [] = " juego vacio"
+showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAction3 xs
+
+
+
+score :: TakGame -> [(TakPlayer, Int)]
+score juego = [(WhitePlayer, puntajeJugador WhitePlayer juego), (BlackPlayer, puntajeJugador BlackPlayer juego)]
+
+puntajeJugador :: TakPlayer -> TakGame -> Int
+puntajeJugador WhitePlayer ((caracteres, (a, b)):xs)
+    | last caracteres == 'x' = 1 + puntajeJugador WhitePlayer xs
+    | otherwise = puntajeJugador WhitePlayer xs
+
+puntajeJugador BlackPlayer ((caracteres, (a, b)):xs)
+    | last caracteres == 'o' = 1 + puntajeJugador BlackPlayer xs
+    | otherwise = puntajeJugador BlackPlayer xs
+
+-- Solo tuve en cuenta el caso de un empate donde la unica forma de determinar un ganador
+-- es a partir de los puntos de los jugadores
+
+result :: TakGame -> [(TakPlayer, Int)]
+result juego =  if (juegoTerminado juego) then
+                    if (puntajeJugador WhitePlayer juego > puntajeJugador BlackPlayer juego) then
+                        [(WhitePlayer, 1), (BlackPlayer, (-1))]  
+                    else if (puntajeJugador WhitePlayer juego < puntajeJugador BlackPlayer juego) then
+                        [(WhitePlayer, (-1)), (BlackPlayer, 1)]
+                    else 
+                        [(WhitePlayer, 0), (BlackPlayer, 0)]
+                else
+                    []
+
+juegoTerminado :: TakGame -> Bool
+juegoTerminado _ = True
+
+
+{-- Match controller -------------------------------------------------------------------------------
+Código de prueba. Incluye una función para correr las partidas y dos agentes: consola y aleatorio.
+type TakAgent = TakGame -> IO (Maybe TakAction)
+{- La función ´runMatch´ corre la partida completa a partir del estado de juego dado, usando los dos 
+agentes dados. Retorna una tupla con los puntajes (score) finales del juego.
+-}
+runMatch :: (TakAgent, TakAgent) -> TakGame -> IO [(TakPlayer, Int)]
+runMatch ags@(ag1, ag2) g = do
+   putStrLn (showBoard g)
+   case (activePlayer g) of
+      Nothing -> return $ result g
+      Just p -> do
+         let ag = [ag1, ag2] !! (fromJust (elemIndex p players))
+         move <- ag g
+         runMatch ags (Tak.next g (p, fromJust move))
+{- La función ´runOnConsole´ ejecuta toda la partida a partir del estado inicial usando dos agentes
+de consola.
+-}
+runOnConsole :: TakGame -> IO [(TakPlayer, Int)]
+runOnConsole g = do
+   runMatch (consoleAgent WhitePlayer, consoleAgent BlackPlayer) g
+run3x3OnConsole :: IO [(TakPlayer, Int)]
+run3x3OnConsole = runOnConsole beginning3x3
+run4x4OnConsole :: IO [(TakPlayer, Int)]
+run4x4OnConsole = runOnConsole beginning4x4
+{- El agente de consola ´consoleAgent´ muestra el estado de juego y los movimientos disponibles por
+consola, y espera una acción por entrada de texto.
+-}
+consoleAgent :: TakPlayer -> TakAgent
+consoleAgent player state = do
+   let moves = fromJust (lookup player (actions state))
+   if null moves then do
+      putStrLn "No moves!"
+      getLine
+      return Nothing
+   else do
+      putStrLn ("Select one move:" ++ concat [" "++ show m | m <- moves])
+      line <- getLine
+      let input = readAction line
+      if elem input moves then return (Just input) else do 
+         putStrLn "Invalid move!"
+         consoleAgent player state
+randomAgent :: TakPlayer -> TakAgent
+randomAgent player state = do
+    let moves = fromJust (lookup player (actions state))
+    if null moves then do
+       putStrLn "No moves!"
+       return Nothing
+    else do
+       i <- randomRIO (0, (length moves) - 1)
+       return (Just (moves !! i))
+-- Fin
+-}
+
+{--
 zip (fst beginning3x3) coordenadasCasillero3x3
 [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
-
 insertarX tablero (xy)
 where algo = zip tabler coordenadas3x3
-
-
-
-
 activePlayer :: TakGame -> TakPlayer
 activePlayer juego 
     | contarRepeticiones juego WhitePlayer > contarRepeticiones juego BlackPlayer = BlackPlayer
     | contarRepeticiones juego WhitePlayer <= contarRepeticiones juego BlackPlayer = WhitePlayer
-
 nonActivePlayer :: TakGame -> TakPlayer
 nonActivePlayer juego 
     | activePlayer juego == WhitePlayer = BlackPlayer
     | otherwise = WhitePlayer
-
 contarRepeticiones :: TakGame -> TakPlayer -> Int
 contarRepeticiones ((caracteres, _, _):xs) WhitePlayer
     | elem 'x' caracteres || elem 'X' caracteres  = (fichasDeLaPila caracteres 'x') + (fichasDeLaPila caracteres 'X') + (contarRepeticiones(xs) WhitePlayer)
     | otherwise = (contarRepeticiones(xs) WhitePlayer)
-
 contarRepeticiones ((caracteres, _, _):xs) BlackPlayer
     | elem 'o' caracteres || elem 'O' caracteres = (fichasDeLaPila caracteres 'o') + (fichasDeLaPila caracteres 'o') + (contarRepeticiones(xs) BlackPlayer)
     | otherwise = (contarRepeticiones(xs) BlackPlayer)
 contarRepeticiones [] _ = 0
-
 fichasDeLaPila :: [Char] -> Char -> Int
 fichasDeLaPila [] _ = 0
 fichasDeLaPila (x:xs) caracter
     | x == caracter = 1 + fichasDeLaPila xs caracter
     | otherwise = fichasDeLaPila xs caracter
-
-
 actions :: TakGame -> [(TakPlayer, [TakAction])]
 actions juegoActual 
         | juegoActual == beginning3x3 = [(activePlayer juegoActual, generarAccionesInsertar juegoActual),(nonActivePlayer juegoActual, []) ]
@@ -68,27 +315,19 @@ actions juegoActual
         | contarRepeticiones juegoActual (activePlayer juegoActual) == 10 && (length juegoActual == 9) =  [(activePlayer juegoActual, (generarAccionesMover  (casillasParaMover juegoActual))), (nonActivePlayer juegoActual, [])]
         | contarRepeticiones juegoActual (activePlayer juegoActual) == 15 && (length juegoActual == 16) = [(activePlayer juegoActual, (generarAccionesMover  (casillasParaMover juegoActual))), (nonActivePlayer juegoActual, [])]
         | otherwise = [(activePlayer juegoActual, (generarAccionesInsertar juegoActual) ++ (generarAccionesMover  (casillasParaMover juegoActual))), (nonActivePlayer juegoActual, [])]
-
-
-
-
 {-
     CASO INSERTAR FICHA NUEVA
 -}
-
 casillasLibresParaInsertar :: TakGame -> [Casillero]
 casillasLibresParaInsertar ((caracteres, a, b):xs) = if (caracteres == ".") then
                                                     [(caracteres, a, b)] ++ (casillasLibresParaInsertar xs)
                                                 else
                                                     casillasLibresParaInsertar xs
 casillasLibresParaInsertar [] = []
-
 generarAccionesInsertar :: [Casillero] -> [TakAction]
 generarAccionesInsertar [] = []
 generarAccionesInsertar (x:xs) = [(x, True, False, x,0)] ++ [(x, True, True, x, 0)] ++ generarAccionesInsertar xs
-
 enJuego3x3 :: TakGame -> Int -> Bool
-
 enJuego3x3 ((caracteres, a, b):xs) contador = case (contador == 9) of {
     True -> False;
     False -> case (caracteres == ".") of {
@@ -99,41 +338,28 @@ enJuego3x3 ((caracteres, a, b):xs) contador = case (contador == 9) of {
         }
     }
 }
-
 todasCasillasLlenas :: TakGame -> Bool
 todasCasillasLlenas [] = True
 todasCasillasLlenas ((caracteres, a, b):xs) = if (last caracteres == '.')  && todasCasillasLlenas xs then True else False
-
 {-
     CASO MOVER FICHA EXISTENTE
 -}
 f2 :: a -> [a] ->[(a,a)]
 f2 a [] = []
 f2 a (h:t) = (a,h):(f2 a t)
-
 casillasParaMover :: TakGame -> [(Casillero, Casillero)]
 casillasParaMover [] = []
 casillasParaMover ((caracteres, a, b):xs) = (f2 (caracteres, a, b) (casillasCercanasPosibles (casillasCercanas  ((caracteres, a, b):xs) (caracteres, a,b)))++ casillasParaMover xs)
-
-
 -- contar largo de la pila, que sea menor igual a 5 y hacer tuplas posibles 
 --
 generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
 generarAccionesMover (((caracteres,a,b),y):xs) = (movimientosParaUnaPila ((caracteres,a,b),y)) ++ generarAccionesMover xs
-
-
 movimientosParaUnaPila :: (Casillero, Casillero) -> [TakAction]
 movimientosParaUnaPila ((caracteres,a,b),y) = [((caracteres,a,b), False, False, y, contador) | contador <- [1.. length caracteres]]
-
-
 m = [(("X", 0, 0), ("X", 0, 1)), (("X", 0, 2), ("X", 1, 0)),( ("X", 1, 1), ("X", 1, 2)), (("X", 2, 0), ("X", 2, 1))]
-
-
 {-
     CASO MANIPULAR PILA
 -}
-
-
 -- a partir del estado del juego
 casillasCercanas :: TakGame -> Casillero -> [Casillero]
 casillasCercanas [] _ = []
@@ -141,7 +367,6 @@ casillasCercanas ((caracteres1, a, b):xs) (caracteres2, x, y) = if (x - 1 == a &
                                                                     [(caracteres1, a, b)] ++ (casillasCercanas xs (caracteres2, x, y))
                                                                 else
                                                                     casillasCercanas xs (caracteres2, x, y)
-
 -- a partir del metodo "casillasCercanas"
 casillasCercanasVacias :: [Casillero] -> [Casillero]
 casillasCercanasVacias ((caracteres, a, b):xs) = if (caracteres == ".") then
@@ -149,20 +374,17 @@ casillasCercanasVacias ((caracteres, a, b):xs) = if (caracteres == ".") then
                                                 else
                                                     casillasCercanasVacias xs
 casillasCercanasVacias [] = []
-
 -- a partir del metodo "casillasCercanas"
 casillasCercanasPropias :: TakPlayer -> [Casillero] -> [Casillero]
 casillasCercanasPropias WhitePlayer ((caracteres, a, b):xs) = if (last caracteres == 'x') then
                                                             [(caracteres, a, b)] ++ (casillasCercanasPropias WhitePlayer xs)
                                                         else
                                                             casillasCercanasPropias WhitePlayer xs
-
 casillasCercanasPropias BlackPlayer ((caracteres, a, b):xs) = if (last caracteres == 'o') then
                                                             [(caracteres, a, b)] ++ (casillasCercanasPropias BlackPlayer xs)
                                                         else
                                                             casillasCercanasPropias BlackPlayer xs
 casillasCercanasPropias _ [] = []
-
 -- a partir del metodo "casillasCercanas"
 casillasCercanasPosibles :: [Casillero] -> [Casillero]
 casillasCercanasPosibles ((caracteres, a, b):xs) = if (last caracteres /= 'X' && last caracteres /= 'O') then
@@ -170,22 +392,15 @@ casillasCercanasPosibles ((caracteres, a, b):xs) = if (last caracteres /= 'X' &&
                                                     else
                                                         casillasCercanasPosibles xs
 casillasCercanasPosibles [] = []
-
-
-
 next :: TakGame -> (TakPlayer, TakAction) -> TakGame
 next juegoActual (jugador, accion)
     | result juegoActual /= [] = error "juego terminado"
     | accion `elem` (snd (head(actions juegoActual))) && jugador == (fst (head(actions juegoActual))) = 
     | otherwise = error "No se puede realizar"
-
 -- caso de  mover, necesitamos dado la cantidad de elementos que queremos mover dejarlos en la posicion inicial y mover los restantes
 -- a la posicion final 
-
-
 realizarAccion :: TakGame -> (TakPlayer,TakAction) -> Int -> TakGame
 realizarAccion [] _ = []
-
 realizarAccion ((caracteres1,x,y):xs) (WhitePlayer, ((caracteres2,x2,y2), insertaMueve, paradaPlana, (caracteres3,x3,y3))) contador = 
             if insertaMueve then
                 if ( x == x3 && y == y3) then
@@ -197,42 +412,27 @@ realizarAccion ((caracteres1,x,y):xs) (WhitePlayer, ((caracteres2,x2,y2), insert
             else
                 if ( x == x2 && y == y2) then
                    if (paradaPlana) then
-
-
-
 --result :: TakGame -> [(TakPlayer, Int)]
-
-
 score :: TakGame -> [(TakPlayer, Int)]
 score ((caracteres, a, b):xs) = if last caracteres == 'x' || last caracteres == 'X' then puntaje (BlackPlayer,0) ++ score xs
                                     
 puntaje :: (TakPlayer, Int) -> (TakPlayer, Int)
 puntaje (BlackPlayer, x) = (BlackPlayer, x+1)
 pintaje (WhitePlayer, x) = (WhitePlayer, x+1)
-
 -- tenemos que poner al jugador activo en el TakGame
 -- map (\n -> divmod n 3) [0..8] para las coordenadas de un 3x3
 -- map (\n -> divmod n 4) [0..15] para las coordenadas de un 4x4
-
 -- cuantos elementos de la pila original dejo en cada casilla
-
 fst3 :: (a, b, c) -> a
 fst3 (x, _, _) = x
-
 fst4 :: (a, b, c, d) -> a
 fst4 (a,_,_,_) = a
-
 fst5 :: (a, b, c, d, e) -> a
 fst5 (a,_,_,_,_) = a
-
-
-
 showGame :: TakGame -> String
 showGame juego 
     | length juego == 9 = show( fst3 (juego!!0) ++ fst3 (juego!!1) ++ fst3 (juego!!2) ++  '\n': fst3 (juego!!3)  ++ fst3 (juego!!4) ++ fst3 (juego!!5) ++  '\n' : fst3 (juego!!6) ++ fst3 (juego!!7) ++ fst3 (juego!!8) )
     | length juego == 16 = show (fst3 (juego!!0) ++ fst3 (juego!!1) ++ fst3 (juego!!2) ++ fst3 (juego!!3) ++  '\n' : fst3 (juego!!4) ++ fst3 (juego!!5) ++ fst3 (juego!!6) ++ fst3 (juego!!7) ++  '\n' : fst3 (juego!!8) ++ fst3 (juego!!9) ++ fst3 (juego!!10) ++ fst3 (juego!!11) ++  '\n' : fst3 (juego!!12) ++ fst3 (juego!!13) ++ fst3 (juego!!14) ++ fst3 (juego!!15) )
-
-
 showAction :: TakAction -> String
 showAction ((_,x,y),b,c,(_,x2,y2),e) = 
     if (b) then 
@@ -242,8 +442,6 @@ showAction ((_,x,y),b,c,(_,x2,y2),e) =
             "Inserta desde afuera la pieza plana en la posicion (" ++ show x2 ++","++ show y2 ++")"
     else
         "mueve "++ show e ++ " fichas desde la posicion (" ++  show x ++","++ show y ++ ")" ++ " hacia la posicion (" ++ show x2 ++","++ show y2 ++")"
-
-
 --}
 
 --readAction :: String -> TakAction
