@@ -1,12 +1,8 @@
-import Data.Maybe (fromJust, listToMaybe) 
+import Data.Maybe (fromJust, listToMaybe)
 import Data.List (elemIndex)
 import Data.List
 import System.Random (randomRIO)
 import Data.Char
-
-
-
-
 
 type TakGame = ([Casillero], TakPlayer)
 
@@ -15,16 +11,19 @@ type Casillero = ([Char], (Integer, Integer))
 data Direccion = Arriba | Abajo | Izquierda | Derecha
 
 data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
-
+-- bool insertar True = Pared
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
 coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 
 -- ejemplo de TakGame
-juego3x3 = ([("",(0,0)) ,("o",(0,1)),("o",(0,2)),("o",(1,0)),("o",(1,1)),("o",(1,2)),("o",(2,0)),("",(2,1)),("",(2,2))],WhitePlayer)
+juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
 
-cCerc = [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]  
+juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],WhitePlayer)
+
+cCerc = [("",(0,0)),("X",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
+
 juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], BlackPlayer)
 
 juegoVacio = ([],BlackPlayer)
@@ -67,18 +66,48 @@ juegoSinComenzar ((x:xs),y)
 
 
 actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juego
-    | activePlayer juego == BlackPlayer = []
-    | (juegoSinComenzar juego) == True = [( activePlayer juego, generarAccionesInsertar (obtenerCasillero juego))]
-
+actions juego = [(activePlayer juego, (generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego))) ++ (generarAccionesInsertar (obtenerCasillero juego)))) , (nonActivePlayer juego, [])]
     
+    
+    
+    
+--    [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego)))), (nonActivePlayer juego, [])]
+--     | (juegoSinComenzar juego) = [(activePlayer juego, generarAccionesInsertar (obtenerCasillero juego)), (nonActivePlayer juego, [])]  
 --zip players [if f then [] else [TakAction], []] --TODO
 
 generarAccionesInsertar :: [Casillero] -> [TakAction]
 generarAccionesInsertar [] = []
 generarAccionesInsertar ((caracteres, (a,b) ):xs)
     | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
-    | otherwise = []
+    | otherwise = generarAccionesInsertar xs
+
+
+generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
+generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
+generarAccionesMover [] = []
+
+
+f2 :: a -> [a] ->[(a,a)]
+f2 a [] = []
+f2 a (h:t) = (a,h):(f2 a t)
+
+f3 :: [a] -> a -> [(a,a)]
+f3 [] a = []
+f3 (x:xs) a = (x,a): f3 xs a
+
+
+filtrarMovimientos :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
+filtrarMovimientos WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'x' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs)
+filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'o' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs) 
+
+
+
+
+casillasParaMover :: [Casillero] -> [(Casillero, Casillero)]
+casillasParaMover [] = []
+casillasParaMover ((caracteres, (a, b)):xs) = (f2 (caracteres, (a, b)) (casillasCercanasPosibles (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b))))) ++ (f3 (casillasCercanasPosibles (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) (caracteres, (a, b))) ++ casillasParaMover xs
+
+
 
 
 
@@ -88,6 +117,7 @@ casillasCercanasPosibles ((caracteres, (a, b)):xs) = if (caracteres == "" || las
                                                         (caracteres, (a, b)) : (casillasCercanasPosibles xs)
                                                     else
                                                         casillasCercanasPosibles xs
+
 
 casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
 casillasCercanas [] _ = []
@@ -99,10 +129,14 @@ casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) = if (x - 1 ==
 
 
 activePlayer :: TakGame -> TakPlayer
-activePlayer g = WhitePlayer 
+activePlayer (g, WhitePlayer) = WhitePlayer 
+activePlayer (g, BlackPlayer) = BlackPlayer 
 
+nonActivePlayer :: TakGame -> TakPlayer
+nonActivePlayer (g, WhitePlayer) = BlackPlayer
+nonActivePlayer (g, BlackPlayer) = WhitePlayer
 
-
+   
 
 
 {--
@@ -118,9 +152,7 @@ score _ = zip players [0, 0] --TODO
 
 
 
-showAction :: TakAction -> String
-showAction a = show a --TODO
-   
+
 readAction :: String -> TakAction
 readAction = read --TODO
 
@@ -144,50 +176,101 @@ impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPos
      (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
      (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15)]
 
-printStrings :: [[String]] -> IO ()
-printStrings = mapM_ (mapM_ putStrLn)
 
-showGame :: TakGame -> IO()
+showGame :: TakGame -> String
 showGame juego 
     | fst juego == [] = error "juego vacio"
     --juego 3x3
-    | length (fst juego) == 9 =  printStrings [[impresionJuego3x3 juego]]
+    | length (fst juego) == 9 =  impresionJuego3x3 juego
     --juego 4x4
-    | length (fst juego) == 16 = printStrings [[impresionJuego4x4 juego]]
+    | length (fst juego) == 16 = impresionJuego4x4 juego
     
-    | otherwise = error "juego no valido para mostrar"
+    | otherwise = error "juego no valido para mostrar"    
+
+showAction :: TakAction -> String
+showAction (Insertar (x, y) pared) = if (pared) then
+                                        "||Se inserta una pared en " ++ (show (x,y))
+                                    else
+                                        "||Se inserta una ficha plana en " ++ (show (x,y))
+
+showAction (Mover (x, y) (x2, y2)) = "||Se mueve de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2))
+
+showAction (Desapilar (x,y) cantidad direccion) = "Se desapila desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " 
+
+showAction2 :: [TakAction] -> String
+showAction2 [] = "no hay mas acciones para mostrar "
+showAction2 (x:xs) = (showAction x) ++ (showAction2 xs)
 
 
-putStrLn2 :: String -> IO ()
-putStrLn2 = putStr . (++ "\n")
+showAction3 :: [(TakPlayer, [TakAction])] -> String
+showAction3 [] = " juego vacio"
+showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAction3 xs
 
-put4times :: String -> IO()
-put4times str
-    = do putStrLn2 str
-         putStrLn2 str
-         putStrLn2 str
-         putStrLn2 str
+{-- Match controller -------------------------------------------------------------------------------
 
-read2lines :: IO()
-read2lines 
-    = do getLine
-         getLine
-         putStrLn2 "two lines read"
-
-copy :: IO()
-copy =
-    do line <- getLine
-       putStrLn2 line
-       copy
-
-copyN :: Integer -> IO()
-copyN n = if n<= 0 then return() else do line <- getLine
-                                         putStrLn line
-                                         copyN (n-1)
+Código de prueba. Incluye una función para correr las partidas y dos agentes: consola y aleatorio.
 
 
+type TakAgent = TakGame -> IO (Maybe TakAction)
+
+{- La función ´runMatch´ corre la partida completa a partir del estado de juego dado, usando los dos 
+agentes dados. Retorna una tupla con los puntajes (score) finales del juego.
+-}
+runMatch :: (TakAgent, TakAgent) -> TakGame -> IO [(TakPlayer, Int)]
+runMatch ags@(ag1, ag2) g = do
+   putStrLn (showBoard g)
+   case (activePlayer g) of
+      Nothing -> return $ result g
+      Just p -> do
+         let ag = [ag1, ag2] !! (fromJust (elemIndex p players))
+         move <- ag g
+         runMatch ags (Tak.next g (p, fromJust move))
+
+{- La función ´runOnConsole´ ejecuta toda la partida a partir del estado inicial usando dos agentes
+de consola.
+-}
+runOnConsole :: TakGame -> IO [(TakPlayer, Int)]
+runOnConsole g = do
+   runMatch (consoleAgent WhitePlayer, consoleAgent BlackPlayer) g
+
+run3x3OnConsole :: IO [(TakPlayer, Int)]
+run3x3OnConsole = runOnConsole beginning3x3
+
+run4x4OnConsole :: IO [(TakPlayer, Int)]
+run4x4OnConsole = runOnConsole beginning4x4
 
 
+{- El agente de consola ´consoleAgent´ muestra el estado de juego y los movimientos disponibles por
+consola, y espera una acción por entrada de texto.
+-}
+consoleAgent :: TakPlayer -> TakAgent
+consoleAgent player state = do
+   let moves = fromJust (lookup player (actions state))
+   if null moves then do
+      putStrLn "No moves!"
+      getLine
+      return Nothing
+   else do
+      putStrLn ("Select one move:" ++ concat [" "++ show m | m <- moves])
+      line <- getLine
+      let input = readAction line
+      if elem input moves then return (Just input) else do 
+         putStrLn "Invalid move!"
+         consoleAgent player state
+
+randomAgent :: TakPlayer -> TakAgent
+randomAgent player state = do
+    let moves = fromJust (lookup player (actions state))
+    if null moves then do
+       putStrLn "No moves!"
+       return Nothing
+    else do
+       i <- randomRIO (0, (length moves) - 1)
+       return (Just (moves !! i))
+
+-- Fin
+
+-}
 
 {--
 
