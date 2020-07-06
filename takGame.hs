@@ -199,16 +199,19 @@ showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAct
 
 
 score :: TakGame -> [(TakPlayer, Int)]
-score juego = [(WhitePlayer, puntajeJugador WhitePlayer juego), (BlackPlayer, puntajeJugador BlackPlayer juego)]
+score juego = [(activePlayer juego, puntajeJugador (activePlayer juego) juego), (nonActivePlayer juego, puntajeJugador (nonActivePlayer juego) juego)]
 
 puntajeJugador :: TakPlayer -> TakGame -> Int
-puntajeJugador WhitePlayer ((caracteres, (a, b)):xs)
-    | last caracteres == 'x' = 1 + puntajeJugador WhitePlayer xs
-    | otherwise = puntajeJugador WhitePlayer xs
+puntajeJugador _ ([], _) = 0
+puntajeJugador WhitePlayer (((tablero):xs), p)
+    | fst tablero == "" = puntajeJugador WhitePlayer (xs, p)
+    | last (fst tablero) == 'x' = 1 + puntajeJugador WhitePlayer (xs, p)
+    | otherwise = puntajeJugador WhitePlayer (xs, p)
 
-puntajeJugador BlackPlayer ((caracteres, (a, b)):xs)
-    | last caracteres == 'o' = 1 + puntajeJugador BlackPlayer xs
-    | otherwise = puntajeJugador BlackPlayer xs
+puntajeJugador BlackPlayer (((tablero):xs), p)
+    | fst tablero == "" = puntajeJugador BlackPlayer (xs, p)
+    | last (fst tablero) == 'o' = 1 + puntajeJugador BlackPlayer (xs, p)
+    | otherwise = puntajeJugador BlackPlayer (xs, p)
 
 -- Solo tuve en cuenta el caso de un empate donde la unica forma de determinar un ganador
 -- es a partir de los puntos de los jugadores
@@ -224,6 +227,8 @@ result juego =  if (juegoTerminado juego) then
                 else
                     []
 
+-- Aca hay que ver los caminos
+-- el que haga el next deberia usar esto antes de hacer cualquier cosa
 juegoTerminado :: TakGame -> Bool
 juegoTerminado _ = True
 
