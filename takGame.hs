@@ -20,6 +20,8 @@ coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 -- ejemplo de TakGame
 juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
 
+casillero3X3 = (fst juego3x3)
+
 juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],WhitePlayer)
 
 cCerc = [("",(0,0)),("X",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
@@ -64,16 +66,27 @@ juegoSinComenzar ((x:xs),y)
 
 
 
-
 actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juego = [(activePlayer juego, (generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego))) ++ (generarAccionesInsertar (obtenerCasillero juego)))) , (nonActivePlayer juego, [])]
+actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
+
+ 
+
+--[(activePlayer juego, (generarAccionesMover ((casillasParaMover (obtenerCasillero juego))) ++ (generarAccionesInsertar (obtenerCasillero juego)))) , (nonActivePlayer juego, [])]
     
-    
-    
-    
---    [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego)))), (nonActivePlayer juego, [])]
+--[(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego)))), (nonActivePlayer juego, [])]
+
+
+          
 --     | (juegoSinComenzar juego) = [(activePlayer juego, generarAccionesInsertar (obtenerCasillero juego)), (nonActivePlayer juego, [])]  
 --zip players [if f then [] else [TakAction], []] --TODO
+
+borrarCasosNoPosibles :: [(Casillero, Casillero)] -> [(Casillero, Casillero)]
+borrarCasosNoPosibles [] = []
+borrarCasosNoPosibles (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
+    | caracteres == "" || caracteres2 == "X" || caracteres2 == "O" = borrarCasosNoPosibles xs
+    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles xs
+
+
 
 generarAccionesInsertar :: [Casillero] -> [TakAction]
 generarAccionesInsertar [] = []
@@ -105,28 +118,26 @@ filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):
 
 casillasParaMover :: [Casillero] -> [(Casillero, Casillero)]
 casillasParaMover [] = []
-casillasParaMover ((caracteres, (a, b)):xs) = (f2 (caracteres, (a, b)) (casillasCercanasPosibles (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b))))) ++ (f3 (casillasCercanasPosibles (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) (caracteres, (a, b))) ++ casillasParaMover xs
-
-
-
+casillasParaMover ((caracteres, (a, b)):xs) = (f2 (caracteres, (a, b)) (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) ++ (f3 ((casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) (caracteres, (a, b))) ++ casillasParaMover xs
 
 
 casillasCercanasPosibles :: [Casillero] -> [Casillero]
 casillasCercanasPosibles [] = []
-casillasCercanasPosibles ((caracteres, (a, b)):xs) = if (caracteres == "" || last caracteres == 'x' || last caracteres == 'o' ) then
-                                                        (caracteres, (a, b)) : (casillasCercanasPosibles xs)
-                                                    else
-                                                        casillasCercanasPosibles xs
+casillasCercanasPosibles ((caracteres, (a, b)):xs) 
+    |  (caracteres == "") || (last caracteres == 'x') || (last caracteres == 'o')  = (caracteres,(a,b)) : (casillasCercanasPosibles xs)
+    | (last caracteres == 'X') || (last caracteres == 'O') = casillasCercanasPosibles xs
+    | otherwise = []
+    
 
 
 casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
 casillasCercanas [] _ = []
-casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) = if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
-                                                                    [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
-                                                                else
-                                                                    casillasCercanas xs (caracteres2, (x, y))
+casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) = 
+                                                                        if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
+                                                                            [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
+                                                                        else
+                                                                            casillasCercanas xs (caracteres2, (x, y))
  
-
 
 activePlayer :: TakGame -> TakPlayer
 activePlayer (g, WhitePlayer) = WhitePlayer 
