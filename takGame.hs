@@ -8,6 +8,8 @@ type TakGame = ([Casillero], TakPlayer)
 
 type Casillero = ([Char], (Integer, Integer))
 
+type Camino = [(Integer, Integer)]
+
 data Direccion = Arriba | Abajo | Izquierda | Derecha
 
 data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
@@ -22,11 +24,11 @@ juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1
 
 casillero3X3 = (fst juego3x3)
 
-juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],WhitePlayer)
+juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("o",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
 
 cCerc = [("",(0,0)),("X",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
 
-juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], BlackPlayer)
+juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], WhitePlayer)
 
 juegoVacio = ([],BlackPlayer)
 
@@ -86,19 +88,15 @@ borrarCasosNoPosibles (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
     | caracteres == "" || caracteres2 == "X" || caracteres2 == "O" = borrarCasosNoPosibles xs
     | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles xs
 
-
-
 generarAccionesInsertar :: [Casillero] -> [TakAction]
 generarAccionesInsertar [] = []
 generarAccionesInsertar ((caracteres, (a,b) ):xs)
     | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
     | otherwise = generarAccionesInsertar xs
 
-
 generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
 generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
 generarAccionesMover [] = []
-
 
 f2 :: a -> [a] ->[(a,a)]
 f2 a [] = []
@@ -108,18 +106,13 @@ f3 :: [a] -> a -> [(a,a)]
 f3 [] a = []
 f3 (x:xs) a = (x,a): f3 xs a
 
-
 filtrarMovimientos :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
 filtrarMovimientos WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'x' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs)
 filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'o' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs) 
 
-
-
-
 casillasParaMover :: [Casillero] -> [(Casillero, Casillero)]
 casillasParaMover [] = []
 casillasParaMover ((caracteres, (a, b)):xs) = (f2 (caracteres, (a, b)) (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) ++ (f3 ((casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) (caracteres, (a, b))) ++ casillasParaMover xs
-
 
 casillasCercanasPosibles :: [Casillero] -> [Casillero]
 casillasCercanasPosibles [] = []
@@ -127,8 +120,6 @@ casillasCercanasPosibles ((caracteres, (a, b)):xs)
     |  (caracteres == "") || (last caracteres == 'x') || (last caracteres == 'o')  = (caracteres,(a,b)) : (casillasCercanasPosibles xs)
     | (last caracteres == 'X') || (last caracteres == 'O') = casillasCercanasPosibles xs
     | otherwise = []
-    
-
 
 casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
 casillasCercanas [] _ = []
@@ -138,7 +129,6 @@ casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) =
                                                                         else
                                                                             casillasCercanas xs (caracteres2, (x, y))
  
-
 activePlayer :: TakGame -> TakPlayer
 activePlayer (g, WhitePlayer) = WhitePlayer 
 activePlayer (g, BlackPlayer) = BlackPlayer 
@@ -148,7 +138,9 @@ nonActivePlayer (g, WhitePlayer) = BlackPlayer
 nonActivePlayer (g, BlackPlayer) = WhitePlayer
 
    
-
+-- HAY QUE CAMBIAR EL JUGADOR POR EL OTRO CUANDO SE EJECUTA EL NEXT, SINO SE 
+-- VA A ROMPER TODO AL CARAJO
+-- TAMBIEN HAY QUE PREGUNTAR SI EL JUEGO FINALIZA LUEGO DE ESA ACCION
 
 {--
 next :: TakGame -> (TakPlayer, TakAction) -> TakGame
@@ -185,7 +177,6 @@ showGame juego
     | length (fst juego) == 9 =  impresionJuego3x3 juego
     --juego 4x4
     | length (fst juego) == 16 = impresionJuego4x4 juego
-    
     | otherwise = error "juego no valido para mostrar"    
 
 showAction :: TakAction -> String
@@ -207,8 +198,6 @@ showAction3 :: [(TakPlayer, [TakAction])] -> String
 showAction3 [] = " juego vacio"
 showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAction3 xs
 
-
-
 score :: TakGame -> [(TakPlayer, Int)]
 score juego = [(activePlayer juego, puntajeJugador (activePlayer juego) juego), (nonActivePlayer juego, puntajeJugador (nonActivePlayer juego) juego)]
 
@@ -229,20 +218,38 @@ puntajeJugador BlackPlayer (((tablero):xs), p)
 
 result :: TakGame -> [(TakPlayer, Int)]
 result juego =  if (juegoTerminado juego) then
-                    if (puntajeJugador WhitePlayer juego > puntajeJugador BlackPlayer juego) then
-                        [(WhitePlayer, 1), (BlackPlayer, (-1))]  
-                    else if (puntajeJugador WhitePlayer juego < puntajeJugador BlackPlayer juego) then
-                        [(WhitePlayer, (-1)), (BlackPlayer, 1)]
-                    else 
-                        [(WhitePlayer, 0), (BlackPlayer, 0)]
+                    [(activePlayer juego, 1), (nonActivePlayer juego, (-1))]
                 else
                     []
 
 -- Aca hay que ver los caminos
 -- el que haga el next deberia usar esto antes de hacer cualquier cosa
 juegoTerminado :: TakGame -> Bool
-juegoTerminado _ = True
+juegoTerminado (tablero, j)
+    | length tablero == 9 = cumpleCaminos (tablero, j) caminosPosibles3x3
+    | length tablero == 16 = cumpleCaminos (tablero, j) caminosPosibles4x4
 
+caminosPosibles3x3 = [[(0,0),(0,1),(0,2)], [(1,0),(1,1),(1,2)], [(2,0),(2,1),(2,2)], [(0,0),(1,0),(2,0)], [(0,1),(1,1),(2,1)], [(0,2),(1,2),(2,2)], [(0,0), (0,1), (1,1), (1,2)], [(0,0), (1,0), (1,1), (2,1)], [(0,1), (1,0), (1,1), (2,0)], [(0,1), (1,1), (1,2), (2,2)], [(0,1), (0,2), (1,0), (1,1)], [(0,2), (1,1), (1,2), (2,1)], [(1,0), (1,1), (2,1), (2,2)], [(1,1), (1,2), (2,0), (2,1)]]
+caminosPosibles4x4 = [[(0,0), (0,1), (0,2), (0,3)], [(1,0), (1,1), (1,2), (1,3)], [(2,0), (2,1), (2,2), (2,3)], [(3,0), (3,1), (3,2), (3,3)], [(0,0), (1,0), (2,0), (3,0)], [(0,1), (1,1), (2,1), (3,1)], [(0,2), (1,2), (2,2), (3,2)], [(0,3), (1,3), (2,3), (3,3)], 
+                    [(0,0), (1,0), (2,0), (2,1), (3,1)], [(0,0), (1,0), (1,1), (2,1), (3,1)], [(0,0), (1,0), (1,1), (1,2), (2,2), (3,2)], [(0,0), (1,0), (2,0), (2,1), (2,2), (3,2)], [(0,0), (1,0), (1,1), (2,1), (2,2), (3,2)], [(0,0), (0,1), (0,2), (1,2), (1,3)], [(0,0), (0,1), (1,1), (1,2), (1,3)], [(0,0), (0,1), (1,1), (2,1), (2,2), (2,3)], [(0,0), (0,1), (0,2), (1,2), (2,2), (2,3)], [(0,0), (0,1), (1,1), (1,2), (2,2), (2,3)],
+                    [(0,1), (0,2), (0,3), (1,0), (1,1)], [(0,2), (0,3), (1,0), (1,1), (1,2)], [(0,2), (0,3), (1,2), (2,0), (2,1), (2,2)], [(0,1), (0,2), (0,3), (1,1), (2,0), (2,1)], [(0,2), (0,3), (1,1), (1,2), (2,0), (2,1)], [(0,3), (1,3), (2,2), (2,3), (3,2)], [(0,3), (1,2), (1,3), (2,2), (3,2)], [(0,3), (1,1), (1,2), (1,3), (2,1), (3,1)], [(0,3), (1,3), (2,1), (2,2), (2,3), (3,1)], [(0,3), (1,2), (1,3), (2,1), (2,2), (3,1)],
+                    [(0,1), (1,0), (1,1), (2,0), (3,0)], [(0,1), (1,1), (2,0), (2,1), (3,0)], [(0,2), (1,2), (2,0), (2,1), (2,2), (3,0)], [(0,2), (1,0), (1,1), (1,2), (2,0), (3,0)], [(0,2), (1,1), (1,2), (2,0), (2,1), (3,0)], [(2,2), (2,3), (3,0), (3,1), (3,2)], [(2,1), (2,2), (2,3), (3,0), (3,1)], [(1,1), (1,2), (1,3), (2,1), (3,0), (3,1)], [(1,2), (1,3), (2,2), (3,0), (3,1), (3,2)], [(1,2), (1,3), (2,1), (2,2), (3,0), (3,1)],
+                    [(2,0), (2,1), (3,1), (3,2), (3,3)], [(2,0), (2,1), (2,2), (3,2), (3,3)], [(1,0), (1,1), (1,2), (2,2), (3,2), (3,3)], [(1,0), (1,1), (2,1), (3,1), (3,2), (3,3)], [(1,0), (1,1), (2,1), (2,2), (3,2), (3,3)], [(0,2), (1,2), (1,3), (2,3), (3,3)], [(0,2), (1,2), (2,2), (2,3), (3,3)], [(0,1), (1,1), (2,1), (2,2), (2,3), (3,3)], [(0,1), (1,1), (1,2), (1,3), (2,3), (3,3)], [(0,1), (1,1), (1,2), (2,2), (2,3), (3,3)],
+                    [(0,1), (1,1), (1,2), (2,2), (3,2)], [(0,2), (1,1), (1,2), (2,1), (3,1)], [(1,2), (1,3), (2,0), (2,1), (2,2)], [(1,0), (1,1), (1,2), (2,2), (2,3)], [(0,1), (1,1), (2,1), (2,2), (3,2)], [(0,2), (1,2), (2,1), (2,2), (3,1)], [(1,1), (1,2), (1,3), (2,0), (2,1)], [(1,0), (1,1), (2,1), (2,2), (2,3)]]
+
+cumpleCaminos :: TakGame -> [Camino] -> Bool
+cumpleCaminos _ [] = False
+cumpleCaminos juego (camino:ys) = (cumpleCamino juego camino) || cumpleCaminos juego ys
+
+cumpleCamino :: TakGame -> Camino -> Bool
+cumpleCamino _ [] = True
+cumpleCamino ((caracteres, (x,y)):xs, WhitePlayer) ((xBuscado, yBuscado):ys)
+    | x == xBuscado && y == yBuscado = if caracteres == "" then False else (last caracteres == 'x') && (cumpleCamino ((caracteres, (x,y)):xs, WhitePlayer) ys)
+    | otherwise = cumpleCamino (xs, WhitePlayer) ((xBuscado, yBuscado):ys)
+
+cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ((xBuscado, yBuscado):ys)
+    | x == xBuscado && y == yBuscado = if caracteres == "" then False else (last caracteres == 'o') && (cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ys)
+    | otherwise = cumpleCamino (xs, BlackPlayer) ((xBuscado, yBuscado):ys)
 
 {-- Match controller -------------------------------------------------------------------------------
 Código de prueba. Incluye una función para correr las partidas y dos agentes: consola y aleatorio.
