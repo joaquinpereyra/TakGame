@@ -10,7 +10,7 @@ type Casillero = ([Char], (Integer, Integer))
 
 type Camino = [(Integer, Integer)]
 
-data Direccion = Arriba | Abajo | Izquierda | Derecha
+data Direccion = Arriba | Abajo | Izquierda | Derecha deriving(Show)
 
 data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
                
@@ -67,7 +67,11 @@ juegoSinComenzar ((x:xs),y)
     | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
     | otherwise = True
 
-
+contenidoCasillero :: [Casillero] -> (Int, Int) -> [Char]
+contenidoCasillero ((caracteres, (a,b)):xs) (x,y)
+    | a == x && b == y = caracteres
+    | otherwise = contenidoCasillero xs (x,y)
+contenidoCasillero [] _ = error "casillero no encontrado"
 
 actions :: TakGame -> [(TakPlayer, [TakAction])]
 actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
@@ -91,13 +95,28 @@ borrarCasosNoPosibles (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
 
 generarAccionesInsertar :: [Casillero] -> [TakAction]
 generarAccionesInsertar [] = []
-generarAccionesInsertar ((caracteres, (a,b) ):xs)
+generarAccionesInsertar ((caracteres, (a,b)):xs)
     | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
     | otherwise = generarAccionesInsertar xs
 
 generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
 generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
 generarAccionesMover [] = []
+
+generarAccionesDesapilar :: [Casillero] -> Casillero -> TakAction
+generarAccionesDesapilar juego (caracteres, (a,b)) = 
+    | contenidoCasillero juego (a+1, b) /= 'X' && 
+
+generarAccionesDesapilarDerecha :: [Casillero] -> Casillero -> TakAction
+generarAccionesDesapilarDerecha [] _ = error "juego vacio"
+generarAccionesDesapilarDerecha juego (caracteres2,(x,y))
+    | contenidoCasillero juego (x,y+1) /= 'X' || contenidoCasillero juego (x,y+1) /= 'O' = 
+
+casillasDireccionIzquierda :: [Casillero] -> Casillero -> [Casillero]
+casillasDireccionIzquierda juego (caracteres, (x,y)) = 
+    | 
+
+
 
 f2 :: a -> [a] ->[(a,a)]
 f2 a [] = []
@@ -138,8 +157,26 @@ controlDeCaracteres (caracteres,(x,y))
     | (length caracteres) < 0 = error "cantidad de caracteres en una pila no valido"
     | otherwise = True
 
+
+
+direccion :: Casillero -> Casillero -> Direccion
+direccion (caracteres,(x,y)) (caracteres2,(x2,y2))
+    | x > x2 && y == y2 = Arriba
+    | x < x2 && y == y2 = Abajo
+    | x == x2 && y > y2 = Derecha
+    | x == x2 && y < y2 = Izquierda 
+
+-- movimiento vertical
 seMueveEnX :: Casillero -> [Casillero] -> Bool
-seMueveEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if ((x+1,y) == (a,b) || (x-1,y) == (a,b)) && seMueveEnX (caracteres2,(a,b)) xs then True else False
+seMueveEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if  ((x+1,y) == (a,b) || (x-1,y) == (a,b)) && seMueveEnX (caracteres2,(a,b)) xs
+
+-- se mueve hacia la derecha
+seMueveDerecha :: Casillero -> [Casillero] -> Bool
+seMueveDerecha (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveDerecha (caracteres2,(a,b)) xs
+
+-- movimiento horizontal
+seMueveEnY :: Casillero -> [Casillero] -> Bool
+seMueveEnY (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveEnY (caracteres2,(a,b)) xs
 
 
 {--
@@ -186,6 +223,7 @@ next juego (jugador,accion)
     | elem accion (snd (head (actions juego))) == False = error "acción no posible"
     | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
     | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
+ --   | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
 
 realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
 realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
@@ -203,6 +241,9 @@ realizarAccionMover _ (_, (Insertar (x, y) parada)) = error "!"
 realizarAccionMover _ (_, (Desapilar (x, y) xoy direccion)) = error "!"
 realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
 realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
+
+--realizarAccionDesapilar :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+--realizarAccionDesapilar
 
 buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
 buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
@@ -249,12 +290,11 @@ showAction (Insertar (x, y) pared) = if (pared) then
 
 showAction (Mover (x, y) (x2, y2)) = "||Se mueve de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2))
 
-showAction (Desapilar (x,y) cantidad direccion) = "Se desapila desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " 
+showAction (Desapilar (x,y) cantidad direccion) = "Se desapila desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " ++ (show direccion)
 
 showAction2 :: [TakAction] -> String
 showAction2 [] = "no hay mas acciones para mostrar "
 showAction2 (x:xs) = (showAction x) ++ (showAction2 xs)
-
 
 showAction3 :: [(TakPlayer, [TakAction])] -> String
 showAction3 [] = " juego vacio"
@@ -327,6 +367,7 @@ instance Eq TakAction where
     (Desapilar (_,_) [_] _) == (Insertar (_,_) _) = False   
     (Desapilar (_,_) [_] _) == (Mover (_,_) (_,_)) = False
     
+
     
 
 {-- Match controller -------------------------------------------------------------------------------
