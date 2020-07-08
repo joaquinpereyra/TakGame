@@ -13,6 +13,7 @@ type Camino = [(Integer, Integer)]
 data Direccion = Arriba | Abajo | Izquierda | Derecha
 
 data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
+               
 -- bool insertar True = Pared
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
@@ -20,7 +21,7 @@ coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 
 -- ejemplo de TakGame
-juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
+juego3x3 = ([("oxoxo",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
 
 casillero3X3 = (fst juego3x3)
 
@@ -114,11 +115,11 @@ casillasParaMover :: [Casillero] -> [(Casillero, Casillero)]
 casillasParaMover [] = []
 casillasParaMover ((caracteres, (a, b)):xs) = (f2 (caracteres, (a, b)) (casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) ++ (f3 ((casillasCercanas  ((caracteres, (a, b)):xs) (caracteres, (a,b)))) (caracteres, (a, b))) ++ casillasParaMover xs
 
-casillasCercanasPosibles :: [Casillero] -> [Casillero]
-casillasCercanasPosibles [] = []
-casillasCercanasPosibles ((caracteres, (a, b)):xs) 
-    |  (caracteres == "") || (last caracteres == 'x') || (last caracteres == 'o')  = (caracteres,(a,b)) : (casillasCercanasPosibles xs)
-    | (last caracteres == 'X') || (last caracteres == 'O') = casillasCercanasPosibles xs
+casillasPosibles :: [Casillero] -> [Casillero]
+casillasPosibles [] = []
+casillasPosibles ((caracteres, (a, b)):xs) 
+    | (caracteres == "") || (last caracteres == 'x') || (last caracteres == 'o')  = (caracteres,(a,b)) : (casillasPosibles xs)
+    | (last caracteres == 'X') || (last caracteres == 'O') = casillasPosibles xs
     | otherwise = []
 
 casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
@@ -128,7 +129,27 @@ casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) =
                                                                             [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
                                                                         else
                                                                             casillasCercanas xs (caracteres2, (x, y))
- 
+
+
+
+controlDeCaracteres :: Casillero -> Bool
+controlDeCaracteres (caracteres,(x,y))
+    | (length caracteres) > 5 = error "cantidad de caracteres en una pila no valido"
+    | (length caracteres) < 0 = error "cantidad de caracteres en una pila no valido"
+    | otherwise = True
+
+seMueveEnX :: Casillero -> [Casillero] -> Bool
+seMueveEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if ((x+1,y) == (a,b) || (x-1,y) == (a,b)) && seMueveEnX (caracteres2,(a,b)) xs then True else False
+
+
+{--
+moverPilaEnX :: Casillero -> [Casillero] ->  
+moverPilaEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if 
+
+intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
+intersectCercaYPosible casillero (x:xs) = intersectCercaYPosible (casillasPosibles casillero (x:xs)) (casillasCercanas)
+--}
+
 activePlayer :: TakGame -> TakPlayer
 activePlayer (g, WhitePlayer) = WhitePlayer 
 activePlayer (g, BlackPlayer) = BlackPlayer 
@@ -156,6 +177,31 @@ activePlayer g = listToMaybe [p | (p, as) <- actions g, not (null as)]
 players :: [TakPlayer]
 players = [minBound..maxBound]
 --}
+
+next :: TakGame -> (TakPlayer, TakAction) -> TakGame
+next juego (jugador,accion)
+    | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
+    | juegoTerminado juego == True = error "juego terminado"
+    | elem accion (snd (head (actions juego))) == False = error "acción no posible"
+    | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
+
+realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
+realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
+        if (controlDeCaracteres (caracteres,(x,y))) then
+            if jugadorAct == WhitePlayer then
+                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("X",(a,b))),BlackPlayer)
+                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("x",(a,b))),BlackPlayer)
+            else 
+                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("O",(a,b))),WhitePlayer)
+                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
+        else error "No se puede insertar a una pila"
+            
+
+buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
+buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
+    | x == a && y == b = ((cad1++cad2,(a,b)):xs)
+    | otherwise = (cad1,(x,y)):(buscarEnCasillero xs (cad2,(a,b)))
+
 
 
 impresionJuego3x3 :: TakGame -> String
@@ -251,6 +297,22 @@ cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ((xBuscado, yBuscado):ys)
     | x == xBuscado && y == yBuscado = if caracteres == "" then False else (last caracteres == 'o') && (cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ys)
     | otherwise = cumpleCamino (xs, BlackPlayer) ((xBuscado, yBuscado):ys)
 
+
+instance Eq TakAction where
+    (Insertar (_,_) _) == (Insertar (_,_) _) = True
+    (Insertar (_,_) _) == (Mover (_,_) (_,_)) = False
+    (Insertar (_,_) _) == (Desapilar (_,_) [_] _) = False
+
+    (Mover (_,_) (_,_)) == (Mover (_,_) (_,_)) = True
+    (Mover (_,_) (_,_)) == (Insertar (_,_) _) = False
+    (Mover (_,_) (_,_)) == (Desapilar (_,_) [_] _) = False
+
+    (Desapilar (_,_) [_] _) == (Desapilar (_,_) [_] _) = True
+    (Desapilar (_,_) [_] _) == (Insertar (_,_) _) = False   
+    (Desapilar (_,_) [_] _) == (Mover (_,_) (_,_)) = False
+    
+    
+
 {-- Match controller -------------------------------------------------------------------------------
 Código de prueba. Incluye una función para correr las partidas y dos agentes: consola y aleatorio.
 type TakAgent = TakGame -> IO (Maybe TakAction)
@@ -303,8 +365,8 @@ randomAgent player state = do
        i <- randomRIO (0, (length moves) - 1)
        return (Just (moves !! i))
 -- Fin
--}
 
+-}
 {--
 zip (fst beginning3x3) coordenadasCasillero3x3
 [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
