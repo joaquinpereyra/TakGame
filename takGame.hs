@@ -178,12 +178,14 @@ players :: [TakPlayer]
 players = [minBound..maxBound]
 --}
 
+
 next :: TakGame -> (TakPlayer, TakAction) -> TakGame
 next juego (jugador,accion)
     | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
     | juegoTerminado juego == True = error "juego terminado"
     | elem accion (snd (head (actions juego))) == False = error "acción no posible"
     | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
+    | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
 
 realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
 realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
@@ -195,14 +197,28 @@ realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool
                 if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("O",(a,b))),WhitePlayer)
                 else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
         else error "No se puede insertar a una pila"
-            
+
+realizarAccionMover :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+realizarAccionMover _ (_, (Insertar (x, y) parada)) = error "!"
+realizarAccionMover _ (_, (Desapilar (x, y) xoy direccion)) = error "!"
+realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
+realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
 
 buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
 buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
     | x == a && y == b = ((cad1++cad2,(a,b)):xs)
     | otherwise = (cad1,(x,y)):(buscarEnCasillero xs (cad2,(a,b)))
 
+eliminarUltimaPosicion :: [Casillero] -> (Integer, Integer) -> [Casillero]
+eliminarUltimaPosicion ((cad1,(x,y)):xs) (a,b)
+    | x == a && y == b = ((drop 1 cad1,(a,b)):xs)
+    | otherwise = (cad1,(x,y)):(eliminarUltimaPosicion xs (a,b))
 
+topeDePila :: [Casillero] -> (Integer, Integer) -> [Char]
+topeDePila ((cad1,(x,y)):xs) (a,b)
+    | x == a && y == b && cad1 /= "" = [last cad1] 
+    | otherwise = topeDePila xs (a,b)
+topeDePila [] (_,_) = error "!"
 
 impresionJuego3x3 :: TakGame -> String
 impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++'\n': 
