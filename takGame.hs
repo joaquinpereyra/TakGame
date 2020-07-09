@@ -6,16 +6,10 @@ import Data.Char
 import Data.List (tails)
 
 type TakGame = ([Casillero], TakPlayer)
-
 type Casillero = ([Char], (Integer, Integer))
-
 type Camino = [(Integer, Integer)]
-
-data Direccion = Arriba | Abajo | Izquierda | Derecha deriving(Show)
-
-data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion
-               
--- bool insertar True = Pared
+data Direccion = Arriba | Abajo | Izquierda | Derecha deriving(Show, Read)
+data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion deriving (Read)       -- bool insertar True = Pared
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
 coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
@@ -23,18 +17,15 @@ coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 
 -- ejemplo de TakGame
 juego3x3 = ([("oxoxo",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
-
 casillero3X3 = (fst juego3x3)
-
 juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("o",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
-
 cCerc = [("",(0,0)),("X",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
-
 juego4x4 = (map (\n -> ("x",(divMod n 4)))  [0..15], WhitePlayer)
-
 juegoVacio = ([],BlackPlayer)
-
 casilleroVacio = [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
+
+
+--- METODOS SOLICITADOS
 
 beginning3x3 :: TakGame
 beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
@@ -42,6 +33,69 @@ beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
 beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
+actions :: TakGame -> [(TakPlayer, [TakAction])]
+actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
+
+activePlayer :: TakGame -> TakPlayer
+activePlayer (g, jugador) = jugador 
+
+result :: TakGame -> [(TakPlayer, Int)]
+result juego =  if (juegoTerminado juego) then
+                    [(activePlayer juego, 1), (nonActivePlayer juego, (-1))]
+                else
+                    []
+
+next :: TakGame -> (TakPlayer, TakAction) -> TakGame
+next juego (jugador,accion)
+    | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
+    | juegoTerminado juego == True = error "juego terminado"
+    | elem accion (snd (head (actions juego))) == False = error "acción no posible"
+    | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
+    | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
+--    | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
+
+score :: TakGame -> [(TakPlayer, Int)]
+score juego = [(activePlayer juego, puntajeJugador (activePlayer juego) juego), (nonActivePlayer juego, puntajeJugador (nonActivePlayer juego) juego)]
+
+showAction :: TakAction -> String
+showAction (Insertar (x, y) pared) = if (pared) then
+                                        "||Insertar una pared en " ++ (show (x,y))
+                                    else
+                                        "||Insertar una ficha plana en " ++ (show (x,y))
+
+showAction (Mover (x, y) (x2, y2)) = "||Mover de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2))
+showAction (Desapilar (x,y) cantidad direccion) = "||Desapilar desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " ++ (show direccion)
+
+showAction2 :: [TakAction] -> String
+showAction2 [] = "no hay mas acciones para mostrar "
+showAction2 (x:xs) = (showAction x) ++ (showAction2 xs)
+
+showAction3 :: [(TakPlayer, [TakAction])] -> String
+showAction3 [] = " juego vacio"
+showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAction3 xs
+
+readAction :: String -> TakAction
+readAction = read --TODO
+
+showBoard :: TakGame -> String
+showBoard juego 
+    | fst juego == [] = error "juego vacio"
+    --juego 3x3
+    | length (fst juego) == 9 =  impresionJuego3x3 juego
+    --juego 4x4
+    | length (fst juego) == 16 = impresionJuego4x4 juego
+    | otherwise = error "juego no valido para mostrar" 
+
+activePlayer2 :: TakGame -> Maybe TakPlayer
+activePlayer2 g = listToMaybe [p | (p, as) <- actions g, not (null as)]
+
+players = [WhitePlayer, BlackPlayer]
+
+-- METODOS AUXILIARES
+
+nonActivePlayer :: TakGame -> TakPlayer
+nonActivePlayer (g, WhitePlayer) = BlackPlayer
+nonActivePlayer (g, BlackPlayer) = WhitePlayer
 
 -- juegoValido determina si el juego es un juego valido, ejemplo: que en el tablero 3x3 no tenga mas de 9
 juegoValido :: TakGame -> Bool
@@ -73,16 +127,6 @@ contenidoCasillero ((caracteres, (a,b)):xs) (x,y)
     | (a == x && b == y) = caracteres
     | otherwise = contenidoCasillero xs (x,y)
 contenidoCasillero [] _ = error "casillero no encontrado"
-
-actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
-
- 
-
-
-          
---     | (juegoSinComenzar juego) = [(activePlayer juego, generarAccionesInsertar (obtenerCasillero juego)), (nonActivePlayer juego, [])]  
---zip players [if f then [] else [TakAction], []] --TODO
 
 borrarCasosNoPosibles :: [(Casillero, Casillero)] -> [(Casillero, Casillero)]
 borrarCasosNoPosibles [] = []
@@ -121,54 +165,6 @@ casillasDireccionDerecha((((caracteres, (x,y)),(caracteres2, (x2,y2)))):xs)  = (
     | length caracteres == 5 = combinationsOf 5 caracteres
 --}
 
-
-
-
-
-
-{- Dado un numero x devolver una lista de listas que contienen números tal que la suma de todos ellos me
-da x-}
-sumaNumero :: Int -> [[Int]]
-sumaNumero 0 = [[0]]
-sumaNumero 1 = [[1]]
-sumaNumero x = quitarDuplicados ([w : z | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
-                              ++ [z ++ [w] | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
-                              ++ [[y] ++ [z] | y<-[1..(x - 1)], z<-[1..(x - 1)] ,y + z == x])
-
-
-
-quitarDuplicados :: (Eq a) => [a] -> [a]
-quitarDuplicados [] = []
-quitarDuplicados (x:xs)
-    | elem x xs = quitarDuplicados xs
-    | otherwise = x : quitarDuplicados xs
-
--- xo [x,o]
--- xox [xo,x] [x,ox] [x,o,x]
--- xoxo [x,oxo] [x, ox, o]
-
--- xxooxx = [xxo, o,x, x]
-
-{-
-
-variaciones :: Integer -> [a] -> [[a]]
-variaciones k xs = 
-  concat (map permutaciones (combinaciones k xs))
-
-permutaciones :: [a] -> [[a]]
-permutaciones []     = [[]]
-permutaciones (x:xs) = 
-    concat [intercala x ys | ys <- permutaciones xs]
-
-intercala :: a -> [a] -> [[a]]
-intercala x [] = [[x]]
-intercala x (y:ys) = (x:y:ys) : [y:zs | zs <- intercala x ys]
-
-combinaciones_1 :: Integer -> [a] -> [[a]]
-combinaciones_1 n xs = 
-    [ys | ys <- subconjuntos xs, genericLength ys == n]
--}
-
 f2 :: a -> [a] ->[(a,a)]
 f2 a [] = []
 f2 a (h:t) = (a,h):(f2 a t)
@@ -195,12 +191,10 @@ casillasPosibles ((caracteres, (a, b)):xs)
 casillasCercanas :: [Casillero] -> Casillero -> [Casillero]
 casillasCercanas [] _ = []
 casillasCercanas ((caracteres1, (a, b)):xs) (caracteres2, (x, y)) = 
-                                                                        if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
-                                                                            [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
-                                                                        else
-                                                                            casillasCercanas xs (caracteres2, (x, y))
-
-
+    if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
+        [(caracteres1, (a, b))] ++ (casillasCercanas xs (caracteres2, (x, y)))
+    else
+        casillasCercanas xs (caracteres2, (x, y))
 
 controlDeCaracteres :: Casillero -> Bool
 controlDeCaracteres (caracteres,(x,y))
@@ -235,46 +229,6 @@ moverPilaEnX :: Casillero -> [Casillero] ->
 moverPilaEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if 
 --}
 
-
-
-activePlayer :: TakGame -> TakPlayer
-activePlayer (g, WhitePlayer) = WhitePlayer 
-activePlayer (g, BlackPlayer) = BlackPlayer 
-
-nonActivePlayer :: TakGame -> TakPlayer
-nonActivePlayer (g, WhitePlayer) = BlackPlayer
-nonActivePlayer (g, BlackPlayer) = WhitePlayer
-
-   
--- HAY QUE CAMBIAR EL JUGADOR POR EL OTRO CUANDO SE EJECUTA EL NEXT, SINO SE 
--- VA A ROMPER TODO AL CARAJO
--- TAMBIEN HAY QUE PREGUNTAR SI EL JUEGO FINALIZA LUEGO DE ESA ACCION
-
-{--
-next :: TakGame -> (TakPlayer, TakAction) -> TakGame
-next _ _ = TakGame True --TODO
-result :: TakGame -> [(TakPlayer, Int)]
-result f = zip players (if f then [] else [1, -1]) --TODO
-score :: TakGame -> [(TakPlayer, Int)]
-score _ = zip players [0, 0] --TODO
-readAction :: String -> TakAction
-readAction = read --TODO
-activePlayer :: TakGame -> Maybe TakPlayer
-activePlayer g = listToMaybe [p | (p, as) <- actions g, not (null as)]
-players :: [TakPlayer]
-players = [minBound..maxBound]
---}
-
-
-next :: TakGame -> (TakPlayer, TakAction) -> TakGame
-next juego (jugador,accion)
-    | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
-    | juegoTerminado juego == True = error "juego terminado"
-    | elem accion (snd (head (actions juego))) == False = error "acción no posible"
-    | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
-    | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
---    | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
-
 realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
 realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
         if (controlDeCaracteres (caracteres,(x,y))) then
@@ -286,12 +240,11 @@ realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool
                 else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
         else error "No se puede insertar a una pila"
 
-
-
 realizarAccionMover :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
 realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
 
+{-
 realizarAccionDesapilar :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 realizarAccionDesapilar ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
     | direccion == Arriba = 
@@ -309,7 +262,7 @@ desapilarArriba ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Arr
         else
             (((caracteres,(x,y)):xs) : desapilarArriba xs (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)))
 
-   -- aumentan las x
+-- aumentan las x
 desapilarAbajo :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 
 -- disminuyen las y
@@ -317,11 +270,10 @@ desapilarIzquierda :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 
 -- aumentan las y
 desapilarDerecha :: [Casillero] -> (TakPlayer, TakAction) -> TakGame         
+-}
 
 intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
 intersectCercaYPosible casilla (x:xs) = intersect (casillasPosibles (x:xs)) (casillasCercanas (x:xs) casilla)
-
-
 
 posibilidadesCasillero :: Casillero -> [Char]
 posibilidadesCasillero (caracteres,(a,b))
@@ -339,8 +291,6 @@ seMueveArriba (caracteres,(x,y)) (caracteres2,(a,b)) = (x-1 == a && y == b)
 
 seMueveAbajo :: Casillero -> Casillero -> Bool
 seMueveAbajo (caracteres,(x,y)) (caracteres2,(a,b)) = (x+1 == a && y == b)
-
-
 
 buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
 buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
@@ -369,37 +319,6 @@ impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPos
      (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
      (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15)]
 
-
-showGame :: TakGame -> String
-showGame juego 
-    | fst juego == [] = error "juego vacio"
-    --juego 3x3
-    | length (fst juego) == 9 =  impresionJuego3x3 juego
-    --juego 4x4
-    | length (fst juego) == 16 = impresionJuego4x4 juego
-    | otherwise = error "juego no valido para mostrar"    
-
-showAction :: TakAction -> String
-showAction (Insertar (x, y) pared) = if (pared) then
-                                        "||Se inserta una pared en " ++ (show (x,y))
-                                    else
-                                        "||Se inserta una ficha plana en " ++ (show (x,y))
-
-showAction (Mover (x, y) (x2, y2)) = "||Se mueve de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2))
-
-showAction (Desapilar (x,y) cantidad direccion) = "Se desapila desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " ++ (show direccion)
-
-showAction2 :: [TakAction] -> String
-showAction2 [] = "no hay mas acciones para mostrar "
-showAction2 (x:xs) = (showAction x) ++ (showAction2 xs)
-
-showAction3 :: [(TakPlayer, [TakAction])] -> String
-showAction3 [] = " juego vacio"
-showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAction3 xs
-
-score :: TakGame -> [(TakPlayer, Int)]
-score juego = [(activePlayer juego, puntajeJugador (activePlayer juego) juego), (nonActivePlayer juego, puntajeJugador (nonActivePlayer juego) juego)]
-
 puntajeJugador :: TakPlayer -> TakGame -> Int
 puntajeJugador _ ([], _) = 0
 puntajeJugador WhitePlayer (((tablero):xs), p)
@@ -412,17 +331,6 @@ puntajeJugador BlackPlayer (((tablero):xs), p)
     | last (fst tablero) == 'o' = 1 + puntajeJugador BlackPlayer (xs, p)
     | otherwise = puntajeJugador BlackPlayer (xs, p)
 
--- Solo tuve en cuenta el caso de un empate donde la unica forma de determinar un ganador
--- es a partir de los puntos de los jugadores
-
-result :: TakGame -> [(TakPlayer, Int)]
-result juego =  if (juegoTerminado juego) then
-                    [(activePlayer juego, 1), (nonActivePlayer juego, (-1))]
-                else
-                    []
-
--- Aca hay que ver los caminos
--- el que haga el next deberia usar esto antes de hacer cualquier cosa
 juegoTerminado :: TakGame -> Bool
 juegoTerminado (tablero, j)
     | length tablero == 9 = cumpleCaminos (tablero, j) caminosPosibles3x3
@@ -464,11 +372,18 @@ instance Eq TakAction where
     (Desapilar (_,_) [_] _) == (Insertar (_,_) _) = False   
     (Desapilar (_,_) [_] _) == (Mover (_,_) (_,_)) = False
     
+instance Show TakAction where
+    show (Insertar (x, y) pared) = if (pared) then
+                                        "| Insertar una pared en " ++ (show (x,y)) ++ " |"
+                                    else
+                                        "| Insertar una ficha plana en " ++ (show (x,y)) ++ " |"
 
-    
+    show (Mover (x, y) (x2, y2)) = "| Mover de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2)) ++ " |"
+    show (Desapilar (x,y) cantidad direccion) = "| Desapilar desde : " ++ (show (x,y)) ++ " en :" ++ (show cantidad) ++ " en direccion: " ++ (show direccion) ++ " |"
 
-{-- Match controller -------------------------------------------------------------------------------
-Código de prueba. Incluye una función para correr las partidas y dos agentes: consola y aleatorio.
+
+-- Match controller -------------------------------------------------------------------------------
+-- Código de prueba. Incluye una función para correr las partidas y dos agentes: consola y aleatorio.
 type TakAgent = TakGame -> IO (Maybe TakAction)
 {- La función ´runMatch´ corre la partida completa a partir del estado de juego dado, usando los dos 
 agentes dados. Retorna una tupla con los puntajes (score) finales del juego.
@@ -476,12 +391,12 @@ agentes dados. Retorna una tupla con los puntajes (score) finales del juego.
 runMatch :: (TakAgent, TakAgent) -> TakGame -> IO [(TakPlayer, Int)]
 runMatch ags@(ag1, ag2) g = do
    putStrLn (showBoard g)
-   case (activePlayer g) of
+   case (activePlayer2 g) of
       Nothing -> return $ result g
       Just p -> do
          let ag = [ag1, ag2] !! (fromJust (elemIndex p players))
          move <- ag g
-         runMatch ags (Tak.next g (p, fromJust move))
+         runMatch ags (next g (p, fromJust move))
 {- La función ´runOnConsole´ ejecuta toda la partida a partir del estado inicial usando dos agentes
 de consola.
 -}
@@ -519,168 +434,3 @@ randomAgent player state = do
        i <- randomRIO (0, (length moves) - 1)
        return (Just (moves !! i))
 -- Fin
-
--}
-{--
-zip (fst beginning3x3) coordenadasCasillero3x3
-[("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
-insertarX tablero (xy)
-where algo = zip tabler coordenadas3x3
-activePlayer :: TakGame -> TakPlayer
-activePlayer juego 
-    | contarRepeticiones juego WhitePlayer > contarRepeticiones juego BlackPlayer = BlackPlayer
-    | contarRepeticiones juego WhitePlayer <= contarRepeticiones juego BlackPlayer = WhitePlayer
-nonActivePlayer :: TakGame -> TakPlayer
-nonActivePlayer juego 
-    | activePlayer juego == WhitePlayer = BlackPlayer
-    | otherwise = WhitePlayer
-contarRepeticiones :: TakGame -> TakPlayer -> Int
-contarRepeticiones ((caracteres, _, _):xs) WhitePlayer
-    | elem 'x' caracteres || elem 'X' caracteres  = (fichasDeLaPila caracteres 'x') + (fichasDeLaPila caracteres 'X') + (contarRepeticiones(xs) WhitePlayer)
-    | otherwise = (contarRepeticiones(xs) WhitePlayer)
-contarRepeticiones ((caracteres, _, _):xs) BlackPlayer
-    | elem 'o' caracteres || elem 'O' caracteres = (fichasDeLaPila caracteres 'o') + (fichasDeLaPila caracteres 'o') + (contarRepeticiones(xs) BlackPlayer)
-    | otherwise = (contarRepeticiones(xs) BlackPlayer)
-contarRepeticiones [] _ = 0
-fichasDeLaPila :: [Char] -> Char -> Int
-fichasDeLaPila [] _ = 0
-fichasDeLaPila (x:xs) caracter
-    | x == caracter = 1 + fichasDeLaPila xs caracter
-    | otherwise = fichasDeLaPila xs caracter
-actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juegoActual 
-        | juegoActual == beginning3x3 = [(activePlayer juegoActual, generarAccionesInsertar juegoActual),(nonActivePlayer juegoActual, []) ]
-        | juegoActual == beginning4x4 = [(activePlayer juegoActual, generarAccionesInsertar juegoActual),(nonActivePlayer juegoActual, [])]
-        | contarRepeticiones juegoActual (activePlayer juegoActual) == 10 && (length juegoActual == 9) =  [(activePlayer juegoActual, (generarAccionesMover  (casillasParaMover juegoActual))), (nonActivePlayer juegoActual, [])]
-        | contarRepeticiones juegoActual (activePlayer juegoActual) == 15 && (length juegoActual == 16) = [(activePlayer juegoActual, (generarAccionesMover  (casillasParaMover juegoActual))), (nonActivePlayer juegoActual, [])]
-        | otherwise = [(activePlayer juegoActual, (generarAccionesInsertar juegoActual) ++ (generarAccionesMover  (casillasParaMover juegoActual))), (nonActivePlayer juegoActual, [])]
-{-
-    CASO INSERTAR FICHA NUEVA
--}
-casillasLibresParaInsertar :: TakGame -> [Casillero]
-casillasLibresParaInsertar ((caracteres, a, b):xs) = if (caracteres == ".") then
-                                                    [(caracteres, a, b)] ++ (casillasLibresParaInsertar xs)
-                                                else
-                                                    casillasLibresParaInsertar xs
-casillasLibresParaInsertar [] = []
-generarAccionesInsertar :: [Casillero] -> [TakAction]
-generarAccionesInsertar [] = []
-generarAccionesInsertar (x:xs) = [(x, True, False, x,0)] ++ [(x, True, True, x, 0)] ++ generarAccionesInsertar xs
-enJuego3x3 :: TakGame -> Int -> Bool
-enJuego3x3 ((caracteres, a, b):xs) contador = case (contador == 9) of {
-    True -> False;
-    False -> case (caracteres == ".") of {
-        True -> enJuego3x3 xs (contador + 1);
-        False -> case (contador < 9) of {
-            True -> True;
-            False -> False
-        }
-    }
-}
-todasCasillasLlenas :: TakGame -> Bool
-todasCasillasLlenas [] = True
-todasCasillasLlenas ((caracteres, a, b):xs) = if (last caracteres == '.')  && todasCasillasLlenas xs then True else False
-{-
-    CASO MOVER FICHA EXISTENTE
--}
-f2 :: a -> [a] ->[(a,a)]
-f2 a [] = []
-f2 a (h:t) = (a,h):(f2 a t)
-casillasParaMover :: TakGame -> [(Casillero, Casillero)]
-casillasParaMover [] = []
-casillasParaMover ((caracteres, a, b):xs) = (f2 (caracteres, a, b) (casillasCercanasPosibles (casillasCercanas  ((caracteres, a, b):xs) (caracteres, a,b)))++ casillasParaMover xs)
--- contar largo de la pila, que sea menor igual a 5 y hacer tuplas posibles 
---
-generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
-generarAccionesMover (((caracteres,a,b),y):xs) = (movimientosParaUnaPila ((caracteres,a,b),y)) ++ generarAccionesMover xs
-movimientosParaUnaPila :: (Casillero, Casillero) -> [TakAction]
-movimientosParaUnaPila ((caracteres,a,b),y) = [((caracteres,a,b), False, False, y, contador) | contador <- [1.. length caracteres]]
-m = [(("X", 0, 0), ("X", 0, 1)), (("X", 0, 2), ("X", 1, 0)),( ("X", 1, 1), ("X", 1, 2)), (("X", 2, 0), ("X", 2, 1))]
-{-
-    CASO MANIPULAR PILA
--}
--- a partir del estado del juego
-casillasCercanas :: TakGame -> Casillero -> [Casillero]
-casillasCercanas [] _ = []
-casillasCercanas ((caracteres1, a, b):xs) (caracteres2, x, y) = if (x - 1 == a && y == b) || (x + 1 == a && y == b) || (x == a && y + 1 == b) || (x == a && y - 1 == b) then
-                                                                    [(caracteres1, a, b)] ++ (casillasCercanas xs (caracteres2, x, y))
-                                                                else
-                                                                    casillasCercanas xs (caracteres2, x, y)
--- a partir del metodo "casillasCercanas"
-casillasCercanasVacias :: [Casillero] -> [Casillero]
-casillasCercanasVacias ((caracteres, a, b):xs) = if (caracteres == ".") then
-                                                    [(caracteres, a, b)] ++ (casillasCercanasVacias xs)
-                                                else
-                                                    casillasCercanasVacias xs
-casillasCercanasVacias [] = []
--- a partir del metodo "casillasCercanas"
-casillasCercanasPropias :: TakPlayer -> [Casillero] -> [Casillero]
-casillasCercanasPropias WhitePlayer ((caracteres, a, b):xs) = if (last caracteres == 'x') then
-                                                            [(caracteres, a, b)] ++ (casillasCercanasPropias WhitePlayer xs)
-                                                        else
-                                                            casillasCercanasPropias WhitePlayer xs
-casillasCercanasPropias BlackPlayer ((caracteres, a, b):xs) = if (last caracteres == 'o') then
-                                                            [(caracteres, a, b)] ++ (casillasCercanasPropias BlackPlayer xs)
-                                                        else
-                                                            casillasCercanasPropias BlackPlayer xs
-casillasCercanasPropias _ [] = []
--- a partir del metodo "casillasCercanas"
-casillasCercanasPosibles :: [Casillero] -> [Casillero]
-casillasCercanasPosibles ((caracteres, a, b):xs) = if (last caracteres /= 'X' && last caracteres /= 'O') then
-                                                        [(caracteres, a, b)] ++ (casillasCercanasPosibles xs)
-                                                    else
-                                                        casillasCercanasPosibles xs
-casillasCercanasPosibles [] = []
-next :: TakGame -> (TakPlayer, TakAction) -> TakGame
-next juegoActual (jugador, accion)
-    | result juegoActual /= [] = error "juego terminado"
-    | accion `elem` (snd (head(actions juegoActual))) && jugador == (fst (head(actions juegoActual))) = 
-    | otherwise = error "No se puede realizar"
--- caso de  mover, necesitamos dado la cantidad de elementos que queremos mover dejarlos en la posicion inicial y mover los restantes
--- a la posicion final 
-realizarAccion :: TakGame -> (TakPlayer,TakAction) -> Int -> TakGame
-realizarAccion [] _ = []
-realizarAccion ((caracteres1,x,y):xs) (WhitePlayer, ((caracteres2,x2,y2), insertaMueve, paradaPlana, (caracteres3,x3,y3))) contador = 
-            if insertaMueve then
-                if ( x == x3 && y == y3) then
-                    if (paradaPlana) then
-                      take (contador -1)++("X",x3,y3):drop (contador + 1) 
-                    else 
-                        take (contador -1)++("x",x3,y3):drop (contador + 1)       
-                else realizarAccion xs (WhitePlayer, ((caracteres2,x2,y2),insertaMueve, (caracteres3,x3,y3))) (contador + 1)
-            else
-                if ( x == x2 && y == y2) then
-                   if (paradaPlana) then
---result :: TakGame -> [(TakPlayer, Int)]
-score :: TakGame -> [(TakPlayer, Int)]
-score ((caracteres, a, b):xs) = if last caracteres == 'x' || last caracteres == 'X' then puntaje (BlackPlayer,0) ++ score xs
-                                    
-puntaje :: (TakPlayer, Int) -> (TakPlayer, Int)
-puntaje (BlackPlayer, x) = (BlackPlayer, x+1)
-pintaje (WhitePlayer, x) = (WhitePlayer, x+1)
--- tenemos que poner al jugador activo en el TakGame
--- map (\n -> divmod n 3) [0..8] para las coordenadas de un 3x3
--- map (\n -> divmod n 4) [0..15] para las coordenadas de un 4x4
--- cuantos elementos de la pila original dejo en cada casilla
-fst3 :: (a, b, c) -> a
-fst3 (x, _, _) = x
-fst4 :: (a, b, c, d) -> a
-fst4 (a,_,_,_) = a
-fst5 :: (a, b, c, d, e) -> a
-fst5 (a,_,_,_,_) = a
-showGame :: TakGame -> String
-showGame juego 
-    | length juego == 9 = show( fst3 (juego!!0) ++ fst3 (juego!!1) ++ fst3 (juego!!2) ++  '\n': fst3 (juego!!3)  ++ fst3 (juego!!4) ++ fst3 (juego!!5) ++  '\n' : fst3 (juego!!6) ++ fst3 (juego!!7) ++ fst3 (juego!!8) )
-    | length juego == 16 = show (fst3 (juego!!0) ++ fst3 (juego!!1) ++ fst3 (juego!!2) ++ fst3 (juego!!3) ++  '\n' : fst3 (juego!!4) ++ fst3 (juego!!5) ++ fst3 (juego!!6) ++ fst3 (juego!!7) ++  '\n' : fst3 (juego!!8) ++ fst3 (juego!!9) ++ fst3 (juego!!10) ++ fst3 (juego!!11) ++  '\n' : fst3 (juego!!12) ++ fst3 (juego!!13) ++ fst3 (juego!!14) ++ fst3 (juego!!15) )
-showAction :: TakAction -> String
-showAction ((_,x,y),b,c,(_,x2,y2),e) = 
-    if (b) then 
-        if (c) 
-            then "Inserta desde afuera la pieza parada en la posicion (" ++ show x2 ++","++ show y2 ++")"
-        else
-            "Inserta desde afuera la pieza plana en la posicion (" ++ show x2 ++","++ show y2 ++")"
-    else
-        "mueve "++ show e ++ " fichas desde la posicion (" ++  show x ++","++ show y ++ ")" ++ " hacia la posicion (" ++ show x2 ++","++ show y2 ++")"
---}
-
---readAction :: String -> TakAction
