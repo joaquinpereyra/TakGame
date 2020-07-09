@@ -8,8 +8,8 @@ import Data.List (tails)
 type TakGame = ([Casillero], TakPlayer)
 type Casillero = ([Char], (Integer, Integer))
 type Camino = [(Integer, Integer)]
-data Direccion = Arriba | Abajo | Izquierda | Derecha deriving(Show, Read)
-data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion deriving (Read)       -- bool insertar True = Pared
+data Direccion = Arriba | Abajo | Izquierda | Derecha deriving(Eq, Show, Read)
+data TakAction = Insertar (Integer, Integer) Bool | Mover (Integer, Integer) (Integer, Integer) | Desapilar (Integer, Integer) [Integer] Direccion deriving (Eq)       -- bool insertar True = Pared
 data TakPlayer = WhitePlayer | BlackPlayer deriving (Eq, Show, Enum)
 
 coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
@@ -34,7 +34,7 @@ beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
 actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
+actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (activePlayer juego ) (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
 
 activePlayer :: TakGame -> TakPlayer
 activePlayer (g, jugador) = jugador 
@@ -44,7 +44,7 @@ result juego =  if (juegoTerminado juego) then
                     [(activePlayer juego, 1), (nonActivePlayer juego, (-1))]
                 else
                     []
-
+{-
 next :: TakGame -> (TakPlayer, TakAction) -> TakGame
 next juego (jugador,accion)
     | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
@@ -53,6 +53,22 @@ next juego (jugador,accion)
     | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
     | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
 --    | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
+-}
+
+next :: TakGame -> (TakPlayer, TakAction) -> TakGame
+next juego (jugador, (Insertar (x,y) pared))
+    | elem (Insertar (x,y) pared) (snd (head (actions juego))) = realizarAccionInsertar (obtenerCasillero juego) (jugador, (Insertar (x,y) pared))
+    | otherwise = error "accion invalida"
+
+next juego (jugador, (Mover (x,y) (x2, y2)))
+    | elem (Mover (x,y) (x2, y2)) (snd (head (actions juego))) = realizarAccionMover (obtenerCasillero juego) (jugador, (Mover (x,y) (x2, y2)))
+    | otherwise = error "accion invalida"
+
+{-
+next juego (jugador, (Desapilar (x,y) cantidades direccion))
+    | elem (Desapilar (x,y) cantidades direccion) (snd (head (actions juego))) = realizarAccionDesapilar (obtenerCasillero juego) (jugador, (Desapilar (x,y) cantidades direccion))
+    | otherwise = error "accion invalida"
+-}
 
 score :: TakGame -> [(TakPlayer, Int)]
 score juego = [(activePlayer juego, puntajeJugador (activePlayer juego) juego), (nonActivePlayer juego, puntajeJugador (nonActivePlayer juego) juego)]
@@ -78,28 +94,40 @@ readAction :: String -> TakAction
 readAction mensaje = 
     if (head mensaje == '3') then
         if (mensaje !! 1 == 'i') then
-            if (mensaje !! 3 == 'p') then
-                (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) False) 
-            else if (mensaje !! 3 == 'P') then
-                (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) False) 
+            if (isDigit (mensaje!!2)) then
+                if (mensaje !! 3 == 'p') then
+                    (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) False) 
+                else if (mensaje !! 3 == 'P') then
+                    (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) True) 
+                else
+                    error "formato invalido"
             else
                 error "formato invalido"
         else if (mensaje !! 1 == 'm') then
+            if (isDigit (mensaje!!2)) && (isDigit (mensaje!!3)) then
                 (Mover (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) (posicionACoordenadas3x3 (digitToInt (mensaje!!3))))
+            else
+                error "formato invalido"
         --else if (mensaje !! 1 == 'a') then
                 -- ACA SE COMPLICA
         else
             error "formato invalido"
     else if (head mensaje == '4') then
         if (mensaje !! 1 == 'i') then
-            if (mensaje !! 3 == 'p') then
-                (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2))) False) 
-            else if (mensaje !! 3 == 'P') then
-                (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2))) False)
+            if (isDigit (mensaje!!2) && isDigit (mensaje!!3)) then
+                if (mensaje !! 4 == 'p') then
+                    (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2)*10 + digitToInt (mensaje!!3))) False) 
+                else if (mensaje !! 3 == 'P') then
+                    (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2)*10 + digitToInt (mensaje!!3))) True)
+                else
+                    error "formato invalido"
             else
                 error "formato invalido"
         else if (mensaje !! 1 == 'm') then
-                (Mover (posicionACoordenadas4x4 (digitToInt (mensaje!!2))) (posicionACoordenadas4x4 (digitToInt (mensaje!!3))))
+            if (isDigit (mensaje!!2) && isDigit (mensaje!!3) && isDigit (mensaje!!4) && isDigit (mensaje!!5)) then
+                (Mover (posicionACoordenadas4x4 (digitToInt (mensaje!!2)*10 + digitToInt (mensaje!!3))) (posicionACoordenadas4x4 (digitToInt (mensaje!!4)*10 + digitToInt (mensaje!!5))))
+            else 
+                error "formato invalido"
         --else if (mensaje !! 1 == 'a') then
                 -- ACA SE COMPLICA
         else
@@ -168,11 +196,24 @@ contenidoCasillero ((caracteres, (a,b)):xs) (x,y)
     | otherwise = contenidoCasillero xs (x,y)
 contenidoCasillero [] _ = error "casillero no encontrado"
 
-borrarCasosNoPosibles :: [(Casillero, Casillero)] -> [(Casillero, Casillero)]
-borrarCasosNoPosibles [] = []
-borrarCasosNoPosibles (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
-    | caracteres == "" || caracteres2 == "X" || caracteres2 == "O" = borrarCasosNoPosibles xs
-    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles xs
+borrarCasosNoPosibles :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
+borrarCasosNoPosibles _ [] = []
+borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
+    if caracteres /= "" && (last caracteres == 'X' || last caracteres == 'x') then 
+        ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
+    else 
+        borrarCasosNoPosibles WhitePlayer xs      
+borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
+    if caracteres /= "" && (last caracteres == 'O' || last caracteres == 'o') then 
+        ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
+    else 
+        borrarCasosNoPosibles BlackPlayer xs                                        
+borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
+    | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'o' = borrarCasosNoPosibles WhitePlayer xs
+    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
+borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
+    | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'x' = borrarCasosNoPosibles BlackPlayer xs
+    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
 
 generarAccionesInsertar :: [Casillero] -> [TakAction]
 generarAccionesInsertar [] = []
@@ -349,9 +390,9 @@ topeDePila ((cad1,(x,y)):xs) (a,b)
 topeDePila [] (_,_) = error "!"
 
 impresionJuego3x3 :: TakGame -> String
-impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++'\n': 
-    (caracterPosicion juego 3) ++ (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ '\n':
-    (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++ (caracterPosicion juego 8)]
+impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++ "      " ++  (caracterPosicion juego 1) ++ "      " ++ (caracterPosicion juego 2) ++'\n': 
+    (caracterPosicion juego 3) ++ "      " ++ (caracterPosicion juego 4) ++ "      " ++ (caracterPosicion juego 5) ++ '\n':
+    (caracterPosicion juego 6) ++ "      " ++ (caracterPosicion juego 7) ++ "      " ++ (caracterPosicion juego 8)]
 
 impresionJuego4x4 :: TakGame -> String
 impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++ (caracterPosicion juego 3) ++'\n': 
@@ -398,7 +439,7 @@ cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ((xBuscado, yBuscado):ys)
     | x == xBuscado && y == yBuscado = if caracteres == "" then False else (last caracteres == 'o') && (cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ys)
     | otherwise = cumpleCamino (xs, BlackPlayer) ((xBuscado, yBuscado):ys)
 
-
+{-
 instance Eq TakAction where
     (Insertar (_,_) _) == (Insertar (_,_) _) = True
     (Insertar (_,_) _) == (Mover (_,_) (_,_)) = False
@@ -411,7 +452,8 @@ instance Eq TakAction where
     (Desapilar (_,_) [_] _) == (Desapilar (_,_) [_] _) = True
     (Desapilar (_,_) [_] _) == (Insertar (_,_) _) = False   
     (Desapilar (_,_) [_] _) == (Mover (_,_) (_,_)) = False
-    
+-}
+
 instance Show TakAction where
     show (Insertar (x, y) pared) = if (pared) then
                                         "| Insertar una pared en " ++ (show (x,y)) ++ " |"
