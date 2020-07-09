@@ -395,10 +395,10 @@ impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++ "      " ++  
     (caracterPosicion juego 6) ++ "      " ++ (caracterPosicion juego 7) ++ "      " ++ (caracterPosicion juego 8)]
 
 impresionJuego4x4 :: TakGame -> String
-impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++  (caracterPosicion juego 1) ++ (caracterPosicion juego 2) ++ (caracterPosicion juego 3) ++'\n': 
-     (caracterPosicion juego 4) ++ (caracterPosicion juego 5) ++ (caracterPosicion juego 6) ++ (caracterPosicion juego 7) ++'\n':
-     (caracterPosicion juego 8) ++ (caracterPosicion juego 9) ++ (caracterPosicion juego 10) ++ (caracterPosicion juego 11) ++ '\n':
-     (caracterPosicion juego 12) ++ (caracterPosicion juego 13) ++ (caracterPosicion juego 14) ++ (caracterPosicion juego 15)]
+impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++ "      " ++  (caracterPosicion juego 1) ++ "      " ++ (caracterPosicion juego 2) ++ "      " ++ (caracterPosicion juego 3) ++'\n': 
+     (caracterPosicion juego 4) ++ "      " ++ (caracterPosicion juego 5) ++ "      " ++ (caracterPosicion juego 6) ++ "      " ++ (caracterPosicion juego 7) ++'\n':
+     (caracterPosicion juego 8) ++ "      " ++ (caracterPosicion juego 9) ++ "      " ++ (caracterPosicion juego 10) ++ "      " ++ (caracterPosicion juego 11) ++ '\n':
+     (caracterPosicion juego 12) ++ "      " ++ (caracterPosicion juego 13) ++ "      " ++ (caracterPosicion juego 14) ++ "      " ++ (caracterPosicion juego 15)]
 
 puntajeJugador :: TakPlayer -> TakGame -> Int
 puntajeJugador _ ([], _) = 0
