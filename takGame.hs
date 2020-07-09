@@ -3,6 +3,7 @@ import Data.List (elemIndex)
 import Data.List
 import System.Random (randomRIO)
 import Data.Char
+import Data.List (tails)
 
 type TakGame = ([Casillero], TakPlayer)
 
@@ -67,9 +68,9 @@ juegoSinComenzar ((x:xs),y)
     | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
     | otherwise = True
 
-contenidoCasillero :: [Casillero] -> (Int, Int) -> [Char]
+contenidoCasillero :: [Casillero] -> (Integer, Integer) -> [Char]
 contenidoCasillero ((caracteres, (a,b)):xs) (x,y)
-    | a == x && b == y = caracteres
+    | (a == x && b == y) = caracteres
     | otherwise = contenidoCasillero xs (x,y)
 contenidoCasillero [] _ = error "casillero no encontrado"
 
@@ -77,10 +78,6 @@ actions :: TakGame -> [(TakPlayer, [TakAction])]
 actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
 
  
-
---[(activePlayer juego, (generarAccionesMover ((casillasParaMover (obtenerCasillero juego))) ++ (generarAccionesInsertar (obtenerCasillero juego)))) , (nonActivePlayer juego, [])]
-    
---[(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (filtrarMovimientos (activePlayer juego) (casillasParaMover (obtenerCasillero juego)))), (nonActivePlayer juego, [])]
 
 
           
@@ -102,21 +99,75 @@ generarAccionesInsertar ((caracteres, (a,b)):xs)
 generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
 generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
 generarAccionesMover [] = []
-
+{--
 generarAccionesDesapilar :: [Casillero] -> Casillero -> TakAction
 generarAccionesDesapilar juego (caracteres, (a,b)) = 
     | contenidoCasillero juego (a+1, b) /= 'X' && 
 
-generarAccionesDesapilarDerecha :: [Casillero] -> Casillero -> TakAction
-generarAccionesDesapilarDerecha [] _ = error "juego vacio"
-generarAccionesDesapilarDerecha juego (caracteres2,(x,y))
-    | contenidoCasillero juego (x,y+1) /= 'X' || contenidoCasillero juego (x,y+1) /= 'O' = 
+
 
 casillasDireccionIzquierda :: [Casillero] -> Casillero -> [Casillero]
 casillasDireccionIzquierda juego (caracteres, (x,y)) = 
     | 
 
 
+
+casillasDireccionDerecha :: [Casillero] -> [Casillero]
+casillasDireccionDerecha [] = []
+casillasDireccionDerecha((((caracteres, (x,y)),(caracteres2, (x2,y2)))):xs)  = (filter (x==x2 & y+1 ==y2) casillero)
+
+    | length caracteres == 3 = combinationsOf 3 caracteres
+    | length caracteres == 4 = combinationsOf 4 caracteres
+    | length caracteres == 5 = combinationsOf 5 caracteres
+--}
+
+
+
+
+
+
+{- Dado un numero x devolver una lista de listas que contienen números tal que la suma de todos ellos me
+da x-}
+sumaNumero :: Int -> [[Int]]
+sumaNumero 0 = [[0]]
+sumaNumero 1 = [[1]]
+sumaNumero x = quitarDuplicados ([w : z | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
+                              ++ [z ++ [w] | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
+                              ++ [[y] ++ [z] | y<-[1..(x - 1)], z<-[1..(x - 1)] ,y + z == x])
+
+
+
+quitarDuplicados :: (Eq a) => [a] -> [a]
+quitarDuplicados [] = []
+quitarDuplicados (x:xs)
+    | elem x xs = quitarDuplicados xs
+    | otherwise = x : quitarDuplicados xs
+
+-- xo [x,o]
+-- xox [xo,x] [x,ox] [x,o,x]
+-- xoxo [x,oxo] [x, ox, o]
+
+-- xxooxx = [xxo, o,x, x]
+
+{-
+
+variaciones :: Integer -> [a] -> [[a]]
+variaciones k xs = 
+  concat (map permutaciones (combinaciones k xs))
+
+permutaciones :: [a] -> [[a]]
+permutaciones []     = [[]]
+permutaciones (x:xs) = 
+    concat [intercala x ys | ys <- permutaciones xs]
+
+intercala :: a -> [a] -> [[a]]
+intercala x [] = [[x]]
+intercala x (y:ys) = (x:y:ys) : [y:zs | zs <- intercala x ys]
+
+combinaciones_1 :: Integer -> [a] -> [[a]]
+combinaciones_1 n xs = 
+    [ys | ys <- subconjuntos xs, genericLength ys == n]
+-}
 
 f2 :: a -> [a] ->[(a,a)]
 f2 a [] = []
@@ -158,7 +209,7 @@ controlDeCaracteres (caracteres,(x,y))
     | otherwise = True
 
 
-
+{--
 direccion :: Casillero -> Casillero -> Direccion
 direccion (caracteres,(x,y)) (caracteres2,(x2,y2))
     | x > x2 && y == y2 = Arriba
@@ -171,21 +222,20 @@ seMueveEnX :: Casillero -> [Casillero] -> Bool
 seMueveEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if  ((x+1,y) == (a,b) || (x-1,y) == (a,b)) && seMueveEnX (caracteres2,(a,b)) xs
 
 -- se mueve hacia la derecha
-seMueveDerecha :: Casillero -> [Casillero] -> Bool
-seMueveDerecha (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveDerecha (caracteres2,(a,b)) xs
+--seMueveDerecha :: Casillero -> [Casillero] -> Bool
+--seMueveDerecha (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveDerecha (caracteres2,(a,b)) xs
 
 -- movimiento horizontal
 seMueveEnY :: Casillero -> [Casillero] -> Bool
 seMueveEnY (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveEnY (caracteres2,(a,b)) xs
-
+--}
 
 {--
 moverPilaEnX :: Casillero -> [Casillero] ->  
 moverPilaEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if 
-
-intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
-intersectCercaYPosible casillero (x:xs) = intersectCercaYPosible (casillasPosibles casillero (x:xs)) (casillasCercanas)
 --}
+
+
 
 activePlayer :: TakGame -> TakPlayer
 activePlayer (g, WhitePlayer) = WhitePlayer 
@@ -223,7 +273,7 @@ next juego (jugador,accion)
     | elem accion (snd (head (actions juego))) == False = error "acción no posible"
     | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
     | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
- --   | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
+--    | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
 
 realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
 realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
@@ -236,14 +286,61 @@ realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool
                 else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
         else error "No se puede insertar a una pila"
 
+
+
 realizarAccionMover :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
-realizarAccionMover _ (_, (Insertar (x, y) parada)) = error "!"
-realizarAccionMover _ (_, (Desapilar (x, y) xoy direccion)) = error "!"
 realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
 realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
 
---realizarAccionDesapilar :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
---realizarAccionDesapilar
+realizarAccionDesapilar :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+realizarAccionDesapilar ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
+    | direccion == Arriba = 
+    | direccion == Izquierda =
+    | direccion == Abajo = 
+    | direccion == Derecha = 
+
+-- disminuyen las x
+desapilarArriba :: [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarArriba ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)) =
+        if x == a && y == b then 
+            if (seMueveArriba ("",(a,b)) x | x <- (intersectCercaYPosible ((caracteres,(x,y)):xs) ("",(1,1)))) then 
+            
+            --(((take (foldr (+) 0 (z:zs)) caracteres), (x,y)) : xs)
+        else
+            (((caracteres,(x,y)):xs) : desapilarArriba xs (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)))
+
+   -- aumentan las x
+desapilarAbajo :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+
+-- disminuyen las y
+desapilarIzquierda :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+
+-- aumentan las y
+desapilarDerecha :: [Casillero] -> (TakPlayer, TakAction) -> TakGame         
+
+intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
+intersectCercaYPosible casilla (x:xs) = intersect (casillasPosibles (x:xs)) (casillasCercanas (x:xs) casilla)
+
+
+
+posibilidadesCasillero :: Casillero -> [Char]
+posibilidadesCasillero (caracteres,(a,b))
+    | length caracteres >= 4 = drop 4 caracteres
+    | otherwise = take (length caracteres ) caracteres
+
+seMueveDerecha :: Casillero -> Casillero -> Bool
+seMueveDerecha (caracteres,(x,y)) (caracteres2,(a,b)) = (x == a && y+1 == b)
+
+seMueveIzquierda :: Casillero -> Casillero -> Bool
+seMueveIzquierda (caracteres,(x,y)) (caracteres2,(a,b)) = (x == a && y-1 == b)
+
+seMueveArriba :: Casillero -> Casillero -> Bool
+seMueveArriba (caracteres,(x,y)) (caracteres2,(a,b)) = (x-1 == a && y == b)
+
+seMueveAbajo :: Casillero -> Casillero -> Bool
+seMueveAbajo (caracteres,(x,y)) (caracteres2,(a,b)) = (x+1 == a && y == b)
+
+
 
 buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
 buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
