@@ -48,7 +48,7 @@ result juego =  if (juegoTerminado juego) then
 next :: TakGame -> (TakPlayer, TakAction) -> TakGame
 next juego (jugador,accion)
     | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
-    | juegoTerminado juego == True = error "juego terminado"
+    | juegoTerminado juego = error "juego terminado"
     | elem accion (snd (head (actions juego))) == False = error "acción no posible"
     | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
     | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
@@ -75,7 +75,37 @@ showAction3 [] = " juego vacio"
 showAction3 (x:y:xs) = (showAction2 (snd x)) ++ (showAction2 (snd y)) ++ showAction3 xs
 
 readAction :: String -> TakAction
-readAction = read --TODO
+readAction mensaje = 
+    if (head mensaje == '3') then
+        if (mensaje !! 1 == 'i') then
+            if (mensaje !! 3 == 'p') then
+                (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) False) 
+            else if (mensaje !! 3 == 'P') then
+                (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) False) 
+            else
+                error "formato invalido"
+        else if (mensaje !! 1 == 'm') then
+                (Mover (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) (posicionACoordenadas3x3 (digitToInt (mensaje!!3))))
+        --else if (mensaje !! 1 == 'a') then
+                -- ACA SE COMPLICA
+        else
+            error "formato invalido"
+    else if (head mensaje == '4') then
+        if (mensaje !! 1 == 'i') then
+            if (mensaje !! 3 == 'p') then
+                (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2))) False) 
+            else if (mensaje !! 3 == 'P') then
+                (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2))) False)
+            else
+                error "formato invalido"
+        else if (mensaje !! 1 == 'm') then
+                (Mover (posicionACoordenadas4x4 (digitToInt (mensaje!!2))) (posicionACoordenadas4x4 (digitToInt (mensaje!!3))))
+        --else if (mensaje !! 1 == 'a') then
+                -- ACA SE COMPLICA
+        else
+            error "formato invalido"
+    else
+        error "formato invalido"
 
 showBoard :: TakGame -> String
 showBoard juego 
@@ -96,6 +126,16 @@ players = [WhitePlayer, BlackPlayer]
 nonActivePlayer :: TakGame -> TakPlayer
 nonActivePlayer (g, WhitePlayer) = BlackPlayer
 nonActivePlayer (g, BlackPlayer) = WhitePlayer
+
+posicionACoordenadas3x3 :: Int -> (Integer, Integer)
+posicionACoordenadas3x3 num
+    | num <= 8 = snd ((fst beginning3x3) !! num)
+    | otherwise = error "!"
+
+posicionACoordenadas4x4 :: Int -> (Integer, Integer)
+posicionACoordenadas4x4 num
+    | num <= 15 = snd ((fst beginning4x4) !! num)
+    | otherwise = error "!"
 
 -- juegoValido determina si el juego es un juego valido, ejemplo: que en el tablero 3x3 no tenga mas de 9
 juegoValido :: TakGame -> Bool
