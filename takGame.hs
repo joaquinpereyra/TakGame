@@ -283,6 +283,18 @@ controlDeCaracteres (caracteres,(x,y))
     | (length caracteres) < 0 = error "cantidad de caracteres en una pila no valido"
     | otherwise = True
 
+sumaNumero :: Int -> [[Int]]
+sumaNumero 0 = [[0]]
+sumaNumero 1 = [[1]]
+sumaNumero x = quitarDuplicados ([w : z | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
+     ++ [z ++ [w] | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
+     ++ [[y] ++ [z] | y<-[1..(x - 1)], z<-[1..(x - 1)] ,y + z == x])
+     
+quitarDuplicados :: (Eq a) => [a] -> [a]
+quitarDuplicados [] = []
+quitarDuplicados (x:xs)
+    | elem x xs = quitarDuplicados xs
+    | otherwise = x : quitarDuplicados xs
 
 {--
 direccion :: Casillero -> Casillero -> Direccion
@@ -352,6 +364,87 @@ desapilarIzquierda :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 -- aumentan las y
 desapilarDerecha :: [Casillero] -> (TakPlayer, TakAction) -> TakGame         
 -}
+
+-- (integer,Integer) pos inicial
+crearCaminoArriba :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
+crearCaminoArriba _ [] _ = []
+crearCaminoArriba direccion (x:xs) (a,b)
+    | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2)) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))] 
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ crearCaminoArriba direccion (xs) (a-1,b)
+
+crearCaminoAbajo :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
+crearCaminoAbajo _ [] _ = []
+crearCaminoAbajo direccion (x:xs) (a,b)
+    | ((a,b) == (2,0) || (a,b) == (2,1) || (a,b) == (2,2)) && direccion == Abajo = (esPosible (x:xs) (obtenerCasilla (x:xs) (a,b)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ crearCaminoAbajo direccion (xs) (a+1,b)
+
+esPosible :: [Casillero] -> Casillero -> [Casillero]
+esPosible [] _ = []
+esPosible (x:xs) casilla = if elem casilla (casillasPosibles (x:xs)) then [casilla] else []
+
+crearCaminoDerecha :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
+crearCaminoDerecha _ [] _ = []
+crearCaminoDerecha direccion (x:xs) (a,b)
+    | ((a,b) == (0,2) || (a,b) == (1,2) || (a,b) == (2,2)) && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ crearCaminoDerecha direccion (xs) (a,b +1)
+
+crearCaminoIzquierda :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
+crearCaminoIzquierda _ [] _ = []
+crearCaminoIzquierda direccion (x:xs) (a,b)
+    | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2)) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))] 
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ crearCaminoIzquierda direccion (xs) (a,b-1)
+
+
+crearCamino :: Direccion -> [Casillero] -> (Integer,Integer) -> [Casillero]
+crearCamino _ [] _ = []
+crearCamino direccion (x:xs) (a,b)
+    | direccion == Arriba = let casillero = (quitarDuplicados (crearCaminoArriba direccion (x:xs) (a,b))) in (quitarError casillero (10,10) 10)
+    | direccion == Abajo = let casillero = (quitarDuplicados (crearCaminoAbajo direccion (x:xs) (a,b))) in (quitarError casillero (10,10) 10)
+    | direccion == Derecha = let casillero = (quitarDuplicados (crearCaminoDerecha direccion (x:xs) (a,b))) in (quitarError casillero (10,10) 10)
+    | direccion == Izquierda = let casillero = (quitarDuplicados (crearCaminoIzquierda direccion (x:xs) (a,b))) in (quitarError casillero (10,10) 10)
+    | otherwise = []
+
+
+
+
+
+casillasSiguienteDireccion :: Direccion -> [Casillero] -> (Integer,Integer) -> Casillero
+casillasSiguienteDireccion dir (x:xs) (a,b) 
+    | dir == Arriba = (devolverCamino [((seMueveArriba (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Abajo = (devolverCamino [((seMueveAbajo (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Derecha = (devolverCamino [((seMueveDerecha (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Izquierda = (devolverCamino [((seMueveIzquierda (obtenerCasilla (x:xs) (a,b)) x),x) | x <- (intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs))])
+
+
+obtenerCasilla :: [Casillero] -> (Integer,Integer) -> Casillero
+obtenerCasilla [] _ = ("z",(10,10))
+obtenerCasilla ((caracteres,(x,y)):xs) (a,b)
+    | x == a && y == b = (caracteres,(x,y))
+    | otherwise = obtenerCasilla xs (a,b)
+
+
+quitarError :: [Casillero] -> (Integer,Integer) -> Int -> [Casillero]
+quitarError [] _ _= []
+quitarError ((caracteres,(x,y)):xs) (a,b) contador
+    | x == a && y == b = (take contador xs)
+    | otherwise = (caracteres,(x,y)) : quitarError xs (a,b) (contador+1)
+
+devolverBool :: [(Bool,Casillero)] -> Bool
+devolverBool [] = False
+devolverBool ((bool,casillero):xs)
+    | bool == True = True
+    | otherwise = devolverBool xs
+
+devolverCamino :: [(Bool, Casillero)] -> Casillero
+devolverCamino [] = ("z",(10,10))
+devolverCamino ((bool,casillero):xs)
+    | bool == True = casillero
+    | otherwise = devolverCamino xs
+
+
+desapilarDeCasilla :: Casillero -> Int -> (Casillero, [Char])
+desapilarDeCasilla (caracteres,(a,b)) cantidad = (((take ((length caracteres) - cantidad) caracteres),(a,b)),(drop ((length caracteres)-cantidad) caracteres))
+
 
 intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
 intersectCercaYPosible casilla (x:xs) = intersect (casillasPosibles (x:xs)) (casillasCercanas (x:xs) casilla)
