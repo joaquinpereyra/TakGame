@@ -16,7 +16,8 @@ coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 
 -- ejemplo de TakGame
-juego3x3 = ([("oxoxo",(0,0)) ,("O",(0,1)),("O",(0,2)),("X",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
+juego3x3 = ([("oxoxo",(0,0)) ,("O",(0,1)),("O",(0,2)),("o",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
+
 casillero3X3 = (fst juego3x3)
 juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("o",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
 cCerc = [("",(0,0)),("X",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
@@ -373,27 +374,27 @@ crearCaminoArriba3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casil
 crearCaminoArriba3x3 _ [] _ = []
 crearCaminoArriba3x3 direccion (x:xs) (a,b)
     | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2)) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (a-1,b)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (a-1,b))) ++ [casillasSiguienteDireccion direccion (x:xs) (a-1,b)]
 
 
 crearCaminoAbajo3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoAbajo3x3 _ [] _ = []
 crearCaminoAbajo3x3 direccion (x:xs) (a,b)
     | ((a,b) == (2,0) || (a,b) == (2,1) || (a,b) == (2,2)) && direccion == Abajo = [(obtenerCasilla (x:xs) (a,b))]
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoAbajo3x3 direccion (xs) (a+1,b)) (obtenerCasilla (crearCaminoAbajo3x3 direccion (xs) (a+1,b)) (a+1,b)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoAbajo3x3 direccion (xs) (a+1,b)) (obtenerCasilla (crearCaminoAbajo3x3 direccion (xs) (a+1,b)) (a+1,b))) ++ [casillasSiguienteDireccion direccion (x:xs) (a+1,b)]
 
 crearCaminoDerecha3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoDerecha3x3 _ [] _ = []
 crearCaminoDerecha3x3 direccion (x:xs) (a,b)
     | ((a,b) == (0,2) || (a,b) == (1,2) || (a,b) == (2,2))  && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoDerecha3x3 direccion (xs) (a,b+1)) (obtenerCasilla (crearCaminoDerecha3x3 direccion (xs) (a,b+1)) (a,b+1)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoDerecha3x3 direccion (xs) (a,b+1)) (obtenerCasilla (crearCaminoDerecha3x3 direccion (xs) (a,b+1)) (a,b+1))) ++ [casillasSiguienteDireccion direccion (x:xs) (a,b+1)]
 
 
 crearCaminoIzquierda3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoIzquierda3x3 _ [] _ = []
 crearCaminoIzquierda3x3 direccion (x:xs) (a,b)
     | ((a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0)) && direccion == Izquierda = [(obtenerCasilla (x:xs) (a,b))] 
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoIzquierda3x3 direccion (xs) (a,b-1)) (obtenerCasilla (crearCaminoIzquierda3x3 direccion (xs) (a,b-1)) (a,b-1)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoIzquierda3x3 direccion (xs) (a,b-1)) (obtenerCasilla (crearCaminoIzquierda3x3 direccion (xs) (a,b-1)) (a,b-1))) ++ [casillasSiguienteDireccion direccion (x:xs) (a,b-1)]
 
 crearCamino3X3 :: Direccion -> [Casillero] -> (Integer,Integer) -> [Casillero]
 crearCamino3X3 _ [] _ = []
@@ -409,25 +410,25 @@ crearCaminoArriba4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casil
 crearCaminoArriba4x4 _ [] _ = []
 crearCaminoArriba4x4 direccion (x:xs) (a,b)
     | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) || (a,b) == (0,3)) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoArriba4x4 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba4x4 direccion (xs) (a-1,b)) (a-1,b)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoArriba4x4 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba4x4 direccion (xs) (a-1,b)) (a-1,b))) ++ [casillasSiguienteDireccion direccion (x:xs) (a-1,b)]
 
 crearCaminoAbajo4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoAbajo4x4 _ [] _ = []
 crearCaminoAbajo4x4 direccion (x:xs) (a,b)
     | ((a,b) == (3,0) || (a,b) == (3,1) || (a,b) == (3,2) || (a,b) == (3,3)) && direccion == Abajo = [(obtenerCasilla (x:xs) (a,b))]
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoAbajo4x4 direccion (xs) (a+1,b)) (obtenerCasilla (crearCaminoAbajo4x4 direccion (xs) (a+1,b)) (a+1,b)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoAbajo4x4 direccion (xs) (a+1,b)) (obtenerCasilla (crearCaminoAbajo4x4 direccion (xs) (a+1,b)) (a+1,b))) ++ [casillasSiguienteDireccion direccion (x:xs) (a+1,b)]
 
 crearCaminoDerecha4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoDerecha4x4 _ [] _ = []
 crearCaminoDerecha4x4 direccion (x:xs) (a,b)
     | ((a,b) == (0,3) || (a,b) == (1,3) || (a,b) == (2,3) || (a,b) == (3,3)) && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoDerecha4x4 direccion (xs) (a,b+1)) (obtenerCasilla (crearCaminoDerecha4x4 direccion (xs) (a,b+1)) (a,b+1)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoDerecha4x4 direccion (xs) (a,b+1)) (obtenerCasilla (crearCaminoDerecha4x4 direccion (xs) (a,b+1)) (a,b+1))) ++ [casillasSiguienteDireccion direccion (x:xs) (a,b+1)]
 
 crearCaminoIzquierda4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoIzquierda4x4 _ [] _ = []
 crearCaminoIzquierda4x4 direccion (x:xs) (a,b)
     | ((a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0) || (a,b) == (3,0)) && direccion == Izquierda = [(obtenerCasilla (x:xs) (a,b))] 
-    | otherwise = (obtenerCasilla (x:xs) (a,b)) : [casillasSiguienteDireccion direccion (x:xs) (a,b)] ++ (esPosible (crearCaminoIzquierda4x4 direccion (xs) (a,b-1)) (obtenerCasilla (crearCaminoIzquierda4x4 direccion (xs) (a,b-1)) (a,b-1)))
+    | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoIzquierda4x4 direccion (xs) (a,b-1)) (obtenerCasilla (crearCaminoIzquierda4x4 direccion (xs) (a,b-1)) (a,b-1))) ++ [casillasSiguienteDireccion direccion (x:xs) (a,b-1)]
 
 crearCamino4X4 :: Direccion -> [Casillero] -> (Integer,Integer) -> [Casillero]
 crearCamino4X4 _ [] _ = []
@@ -444,9 +445,12 @@ esPosible :: [Casillero] -> Casillero -> [Casillero]
 esPosible [] _ = []
 esPosible (x:xs) casilla = if elem casilla (casillasPosibles (x:xs)) then [casilla] else []
 
+{--
+oxoxo O O
+o x ""
+o o ""
 
-
-
+--}
 
 
 casillasSiguienteDireccion :: Direccion -> [Casillero] -> (Integer,Integer) -> Casillero
