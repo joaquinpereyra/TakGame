@@ -35,17 +35,17 @@ beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
 actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ 
-                generarAccionesMover (borrarCasosNoPosibles (activePlayer juego) (casillasParaMover (obtenerCasillero juego)) )
-                ++ filtrarDesapilados juego (generarAccionesDesapilarJuego juego (obtenerCasillero juego))), (nonActivePlayer juego, [])]
+actions juego = [(activePlayer2 juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ 
+                generarAccionesMover (borrarCasosNoPosibles (activePlayer2 juego) (casillasParaMover (obtenerCasillero juego)) )
+                ++ filtrarDesapilados juego (generarAccionesDesapilarJuego juego (obtenerCasillero juego))), (nonActivePlayer2 juego, [])]
                 
 
-activePlayer :: TakGame -> TakPlayer
-activePlayer (g, jugador) = jugador 
+activePlayer2 :: TakGame -> TakPlayer
+activePlayer2 (g, jugador) = jugador
 
 result :: TakGame -> [(TakPlayer, Int)]
 result juego =  if (juegoTerminado juego) then
-                    [(activePlayer juego, 1), (nonActivePlayer juego, (-1))]
+                    [(activePlayer2 juego, 1), (nonActivePlayer2 juego, (-1))]
                 else
                     []
 
@@ -65,7 +65,7 @@ next juego (jugador, (Desapilar (x,y) cantidades direccion))
 
 
 score :: TakGame -> [(TakPlayer, Int)]
-score juego = [(activePlayer juego, puntajeJugador (activePlayer juego) juego), (nonActivePlayer juego, puntajeJugador (nonActivePlayer juego) juego)]
+score juego = [(activePlayer2 juego, puntajeJugador (activePlayer2 juego) juego), (nonActivePlayer2 juego, puntajeJugador (nonActivePlayer2 juego) juego)]
 
 showAction :: TakAction -> String
 showAction (Insertar (x, y) pared) = if (pared) then
@@ -174,12 +174,123 @@ showBoard juego
     | length (fst juego) == 16 = impresionJuego4x4 juego
     | otherwise = error "juego no valido para mostrar" 
 
-activePlayer2 :: TakGame -> Maybe TakPlayer
-activePlayer2 g = listToMaybe [p | (p, as) <- actions g, not (null as)]
+activePlayer :: TakGame -> Maybe TakPlayer
+activePlayer g = listToMaybe [p | (p, as) <- actions g, not (null as)]
 
 players = [WhitePlayer, BlackPlayer]
 
 ----------------------------------------------------------------- METODOS AUXILIARES -------------------------------------------------------------
+
+
+outerProduct xs ys =
+   do
+       x <- xs
+       y <- ys
+       return (x,y)
+
+
+nonActivePlayer2 :: TakGame -> TakPlayer
+nonActivePlayer2 (g, WhitePlayer) = BlackPlayer
+nonActivePlayer2 (g, BlackPlayer) = WhitePlayer
+
+
+juegoSinComenzar :: TakGame -> Bool
+juegoSinComenzar ((x:xs),y)
+    | (x:xs) == [] = True
+    | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
+    | otherwise = True
+
+
+listaIntToInteger :: [Int] -> [Integer]
+listaIntToInteger [] = []
+listaIntToInteger (x:xs) = fromIntegral x : listaIntToInteger xs
+
+listaIntegerToInt :: [Integer] -> [Int]
+listaIntegerToInt [] = []
+listaIntegerToInt (x:xs) = fromInteger x : listaIntegerToInt xs
+
+f2 :: a -> [a] ->[(a,a)]
+f2 a [] = []
+f2 a (h:t) = (a,h):(f2 a t)
+
+f3 :: [a] -> a -> [(a,a)]
+f3 [] a = []
+f3 (x:xs) a = (x,a): f3 xs a
+
+
+quitarDuplicados :: (Eq a) => [a] -> [a]
+quitarDuplicados [] = []
+quitarDuplicados (x:xs)
+    | elem x xs = quitarDuplicados xs
+    | otherwise = x : quitarDuplicados xs
+    
+quitarDuplicados2 :: (Eq a) => [[a]] -> [[a]]
+quitarDuplicados2 [[]] = [[]]
+quitarDuplicados2 (x:xs)
+    | elem x xs = quitarDuplicados2 xs
+    | otherwise = x : quitarDuplicados2 xs
+
+generarPosibilidades :: [Integer] -> Integer -> [[Integer]]
+generarPosibilidades pos objetivo = hacerPosibilidad' [] pos (fromIntegral (length (listaIntegerToInt pos))) objetivo
+  where
+    hacerPosibilidad' :: [Integer] -> [Integer] -> Integer -> Integer -> [[Integer]]
+    hacerPosibilidad' hacer pos indice objetivo
+      | objetivo <  0 = []
+      | objetivo == 0 = [hacer]
+      | indice == 0 && objetivo >= 1 = []
+      | otherwise = (hacerPosibilidad' hacer pos (fromInteger indice - 1) objetivo) ++ (hacerPosibilidad' (hacer  ++ [pos !! (fromInteger indice - 1)]) pos indice (objetivo - (pos !! (fromInteger indice - 1))))
+
+permutaciones :: [a] -> [[a]]
+permutaciones []     = [[]]
+permutaciones (x:xs) = 
+    concat [intercala x ys | ys <- permutaciones xs]
+
+intercala :: a -> [a] -> [[a]]
+intercala x [] = [[x]]
+intercala x (y:ys) = (x:y:ys) : [y:zs | zs <- intercala x ys]
+
+posibilidades2 :: [Integer] -> Integer -> [[Integer]]
+posibilidades2 [] _ = []
+posibilidades2  list num =  init (init([tail x | x <- (quitarDuplicados2 (posibilidades (generarPosibilidades list num)))]))
+
+posibilidades :: [[Integer]] -> [[Integer]]
+posibilidades [] = [[]]
+posibilidades (x:xs) = permutaciones x ++ posibilidades xs
+
+
+direccion :: Casillero -> Casillero -> Direccion
+direccion (caracteres,(x,y)) (caracteres2,(x2,y2))
+    | x > x2 && y == y2 = Arriba
+    | x < x2 && y == y2 = Abajo
+    | x == x2 && y > y2 = Derecha
+    | x == x2 && y < y2 = Izquierda 
+
+
+cadenaConLista :: [Char] -> [Int] -> [([Char])]
+cadenaConLista [] _ = []
+cadenaConLista _ [] = []
+cadenaConLista cadena (x:xs) = (take  x cadena) : cadenaConLista (drop x cadena) xs
+
+
+
+quitarError :: [Casillero] -> (Integer,Integer) -> Int -> [Casillero]
+quitarError [] _ _= []
+quitarError ((caracteres,(x,y)):xs) (a,b) contador
+    | x == a && y == b = (take contador xs)
+    | otherwise = (caracteres,(x,y)) : quitarError xs (a,b) (contador+1)
+
+devolverBool :: [(Bool,Casillero)] -> Bool
+devolverBool [] = False
+devolverBool ((bool,casillero):xs)
+    | bool == True = True
+    | otherwise = devolverBool xs
+
+devolverCamino :: [(Bool, Casillero)] -> Casillero
+devolverCamino [] = ("z",(10,10))
+devolverCamino ((bool,casillero):xs)
+    | bool == True = casillero
+    | otherwise = devolverCamino xs
+
 
 -------------------------------------------------------Sobre Casilleros -------------------------------------------------------------------
 buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
@@ -287,13 +398,6 @@ obtenerCasilla ((caracteres,(x,y)):xs) (a,b)
     | x == a && y == b = (caracteres,(x,y))
     | otherwise = obtenerCasilla xs (a,b)
 
-casillaSiguienteDireccion :: Direccion -> [Casillero] -> (Integer,Integer) -> Casillero
-casillaSiguienteDireccion dir (x:xs) (a,b) 
-    | dir == Arriba = (devolverCamino [((seMueveArriba (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
-    | dir == Abajo = (devolverCamino [((seMueveAbajo (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
-    | dir == Derecha = (devolverCamino [((seMueveDerecha (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
-    | dir == Izquierda = (devolverCamino [((seMueveIzquierda (obtenerCasilla (x:xs) (a,b)) x),x) | x <- (intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs))])
-
 
 ---------------------------------------- Accion Insertar -------------------------------------------------------
 
@@ -312,8 +416,8 @@ realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool
                 if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("X",(a,b))),BlackPlayer)
                 else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("x",(a,b))),BlackPlayer)
             else 
-                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("O",(a,b))),WhitePlayer)
-                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
+                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("O",(a,b))), WhitePlayer)
+                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))), WhitePlayer)
         else error "No se puede insertar a una pila"
 
 
@@ -330,38 +434,35 @@ posibilidadesCasillero (caracteres,(a,b))
 ------------------------------------------------------------------------------------------
 
 
-------------------------------- Acciones Mover-------------------------------------------
+------------------------------- Accion Mover-------------------------------------------
 
 generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
 generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
 generarAccionesMover [] = []
 
-
-filtrarMovimientos :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
-filtrarMovimientos WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'x' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs)
-filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'o' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs) 
-
 realizarAccionMover :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
 realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
 
-
-
 borrarCasosNoPosibles :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
 borrarCasosNoPosibles _ [] = []
+
 borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
     if caracteres /= "" && (last caracteres == 'X' || last caracteres == 'x') then 
         ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
     else 
-        borrarCasosNoPosibles WhitePlayer xs      
+        borrarCasosNoPosibles WhitePlayer xs
+
 borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
     if caracteres /= "" && (last caracteres == 'O' || last caracteres == 'o') then 
         ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
     else 
-        borrarCasosNoPosibles BlackPlayer xs                                        
+        borrarCasosNoPosibles BlackPlayer xs          
+
 borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
     | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'o' = borrarCasosNoPosibles WhitePlayer xs
     | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
+
 borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
     | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'x' = borrarCasosNoPosibles BlackPlayer xs
     | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
@@ -371,36 +472,6 @@ borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2))
 
 
 --------------------------------- Accion Desapilar ---------------------
-
-
-
-
-
-
-
-
-
-
-
-
-nonActivePlayer :: TakGame -> TakPlayer
-nonActivePlayer (g, WhitePlayer) = BlackPlayer
-nonActivePlayer (g, BlackPlayer) = WhitePlayer
-
-
-
-
-
-juegoSinComenzar :: TakGame -> Bool
-juegoSinComenzar ((x:xs),y)
-    | (x:xs) == [] = True
-    | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
-    | otherwise = True
-
-
-
-
-
 
 
 desapiladosPosiblesArriba :: [Casillero] -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
@@ -476,88 +547,20 @@ filtrarDesapilados (juego,jugador) ((Desapilar (x,y) (z:zs) direccion):ds) =
     else
         error "!"
 
-listaIntToInteger :: [Int] -> [Integer]
-listaIntToInteger [] = []
-listaIntToInteger (x:xs) = fromIntegral x : listaIntToInteger xs
-
-listaIntegerToInt :: [Integer] -> [Int]
-listaIntegerToInt [] = []
-listaIntegerToInt (x:xs) = fromInteger x : listaIntegerToInt xs
-
-f2 :: a -> [a] ->[(a,a)]
-f2 a [] = []
-f2 a (h:t) = (a,h):(f2 a t)
-
-f3 :: [a] -> a -> [(a,a)]
-f3 [] a = []
-f3 (x:xs) a = (x,a): f3 xs a
-
-
-quitarDuplicados :: (Eq a) => [a] -> [a]
-quitarDuplicados [] = []
-quitarDuplicados (x:xs)
-    | elem x xs = quitarDuplicados xs
-    | otherwise = x : quitarDuplicados xs
-    
-quitarDuplicados2 :: (Eq a) => [[a]] -> [[a]]
-quitarDuplicados2 [[]] = [[]]
-quitarDuplicados2 (x:xs)
-    | elem x xs = quitarDuplicados2 xs
-    | otherwise = x : quitarDuplicados2 xs
-
-makeChangeSolutions :: [Integer] -> Integer -> [[Integer]]
-makeChangeSolutions coins target = makeChange' [] coins (fromIntegral (length (listaIntegerToInt coins))) target
-  where
-    makeChange' :: [Integer] -> [Integer] -> Integer -> Integer -> [[Integer]]
-    makeChange' coinSet coins coinIndex target
-      | target <  0 = []
-      | target == 0 = [coinSet]
-      | coinIndex == 0 && target >= 1 = []
-      | otherwise = (makeChange' coinSet coins (fromInteger coinIndex - 1) target) ++ (makeChange' (coinSet  ++ [coins !! (fromInteger coinIndex - 1)]) coins coinIndex (target - (coins !! (fromInteger coinIndex - 1))))
-
-permutaciones :: [a] -> [[a]]
-permutaciones []     = [[]]
-permutaciones (x:xs) = 
-    concat [intercala x ys | ys <- permutaciones xs]
-
-intercala :: a -> [a] -> [[a]]
-intercala x [] = [[x]]
-intercala x (y:ys) = (x:y:ys) : [y:zs | zs <- intercala x ys]
-
-posibilidades2 :: [Integer] -> Integer -> [[Integer]]
-posibilidades2 [] _ = []
-posibilidades2  list num =  init (init([tail x | x <- (quitarDuplicados2 (posibilidades (makeChangeSolutions list num)))]))
-
-posibilidades :: [[Integer]] -> [[Integer]]
-posibilidades [] = [[]]
-posibilidades (x:xs) = permutaciones x ++ posibilidades xs
-
-
-
-
-direccion :: Casillero -> Casillero -> Direccion
-direccion (caracteres,(x,y)) (caracteres2,(x2,y2))
-    | x > x2 && y == y2 = Arriba
-    | x < x2 && y == y2 = Abajo
-    | x == x2 && y > y2 = Derecha
-    | x == x2 && y < y2 = Izquierda 
-
-
-
 realizarAccionDesapilar3x3 :: TakGame -> (TakPlayer, TakAction) -> TakGame
 realizarAccionDesapilar3x3 (juego, jugador) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
-    | direccion == Arriba = (desapilarArriba3x3 juego  juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
-    | direccion == Izquierda = (desapilarIzquierda3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
-    | direccion == Abajo = ((desapilarAbajo3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
-    | direccion == Derecha = ((desapilarDerecha3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
+    | direccion == Arriba = (desapilarArriba3x3 juego  juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador))
+    | direccion == Izquierda = (desapilarIzquierda3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador))
+    | direccion == Abajo = ((desapilarAbajo3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador)))
+    | direccion == Derecha = ((desapilarDerecha3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador)))
 
 
 realizarAccionDesapilar4x4 :: TakGame -> (TakPlayer, TakAction) -> TakGame
 realizarAccionDesapilar4x4 (juego, jugador) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
-    | direccion == Arriba = (desapilarArriba4x4 juego  juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
-    | direccion == Izquierda = (desapilarIzquierda4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
-    | direccion == Abajo = ((desapilarAbajo4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
-    | direccion == Derecha = ((desapilarDerecha4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
+    | direccion == Arriba = (desapilarArriba4x4 juego  juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador))
+    | direccion == Izquierda = (desapilarIzquierda4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador))
+    | direccion == Abajo = ((desapilarAbajo4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador)))
+    | direccion == Derecha = ((desapilarDerecha4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer2 (juego, jugador)))
 
 
 
@@ -574,16 +577,6 @@ desapilarDeCasilla2 :: Casillero -> [Integer] -> (Casillero,[[Char]])
 desapilarDeCasilla2 (caracteres,(a,b)) (z:zs) = (((take ((length caracteres) - (foldr (+) 0 (listaIntegerToInt (z:zs)))) caracteres),(a,b)), cadenaConLista (drop ((length caracteres) - (foldr (+) 0 (listaIntegerToInt (z:zs))))  caracteres) (listaIntegerToInt (z:zs)))
 
 
-
-
-cadenaConLista :: [Char] -> [Int] -> [([Char])]
-cadenaConLista [] _ = []
-cadenaConLista _ [] = []
-cadenaConLista cadena (x:xs) = (take  x cadena) : cadenaConLista (drop x cadena) xs
-
-
-
--- disminuyen las x
 desapilarArriba3x3 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
 desapilarArriba3x3 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
 desapilarArriba3x3 [] _ _ = error "Casillero Vacio 1"
@@ -769,11 +762,7 @@ crearCaminoArriba3x3 direccion (x:xs) (a,b)
     | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (a-1,b))) ++ [casillaSiguienteDireccion direccion (x:xs) (a-1,b)]
 
-outerProduct xs ys =
-   do
-       x <- xs          -- for each x drawn from xs:
-       y <- ys          --   for each y drawn from ys:
-       return (x,y)     --      produce the (x,y) pair
+
 
 crearCaminoAbajo3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoAbajo3x3 _ [] _ = []
@@ -837,35 +826,6 @@ crearCamino4X4 direccion (x:xs) (a,b)
     | direccion == Izquierda = let casillero = (quitarDuplicados (crearCaminoIzquierda4x4  direccion (x:xs) (a,b))) in (quitarError casillero (10,10) 10)
     | otherwise = []
 
-
-
-
-
-
-
-
-quitarError :: [Casillero] -> (Integer,Integer) -> Int -> [Casillero]
-quitarError [] _ _= []
-quitarError ((caracteres,(x,y)):xs) (a,b) contador
-    | x == a && y == b = (take contador xs)
-    | otherwise = (caracteres,(x,y)) : quitarError xs (a,b) (contador+1)
-
-devolverBool :: [(Bool,Casillero)] -> Bool
-devolverBool [] = False
-devolverBool ((bool,casillero):xs)
-    | bool == True = True
-    | otherwise = devolverBool xs
-
-devolverCamino :: [(Bool, Casillero)] -> Casillero
-devolverCamino [] = ("z",(10,10))
-devolverCamino ((bool,casillero):xs)
-    | bool == True = casillero
-    | otherwise = devolverCamino xs
-
-
-
-
-
 seMueveDerecha :: Casillero -> Casillero -> Bool
 seMueveDerecha (caracteres,(x,y)) (caracteres2,(a,b)) = (x == a && y+1 == b)
 
@@ -878,7 +838,15 @@ seMueveArriba (caracteres,(x,y)) (caracteres2,(a,b)) = (x-1 == a && y == b)
 seMueveAbajo :: Casillero -> Casillero -> Bool
 seMueveAbajo (caracteres,(x,y)) (caracteres2,(a,b)) = (x+1 == a && y == b)
 
+casillaSiguienteDireccion :: Direccion -> [Casillero] -> (Integer,Integer) -> Casillero
+casillaSiguienteDireccion dir (x:xs) (a,b) 
+    | dir == Arriba = (devolverCamino [((seMueveArriba (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Abajo = (devolverCamino [((seMueveAbajo (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Derecha = (devolverCamino [((seMueveDerecha (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Izquierda = (devolverCamino [((seMueveIzquierda (obtenerCasilla (x:xs) (a,b)) x),x) | x <- (intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs))])
 
+
+------------------------------------------Imprimir --------------------------
 
 impresionJuego3x3 :: TakGame -> String
 impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++ "      " ++  (caracterPosicion juego 1) ++ "      " ++ (caracterPosicion juego 2) ++'\n': 
@@ -891,6 +859,8 @@ impresionJuego4x4 juego = unlines $ [(caracterPosicion juego 0) ++ "      " ++  
      (caracterPosicion juego 8) ++ "      " ++ (caracterPosicion juego 9) ++ "      " ++ (caracterPosicion juego 10) ++ "      " ++ (caracterPosicion juego 11) ++ '\n':
      (caracterPosicion juego 12) ++ "      " ++ (caracterPosicion juego 13) ++ "      " ++ (caracterPosicion juego 14) ++ "      " ++ (caracterPosicion juego 15)]
 
+
+----------------- Puntaje y Resultado -----------------------------------
 puntajeJugador :: TakPlayer -> TakGame -> Int
 puntajeJugador _ ([], _) = 0
 puntajeJugador WhitePlayer (((tablero):xs), p)
@@ -930,6 +900,7 @@ cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ((xBuscado, yBuscado):ys)
     | x == xBuscado && y == yBuscado = if caracteres == "" then False else (last caracteres == 'o') && (cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ys)
     | otherwise = cumpleCamino (xs, BlackPlayer) ((xBuscado, yBuscado):ys)
 
+
 instance Show TakAction where
     show (Insertar (x, y) pared) = if (pared) then
                                         "| Insertar una pared en " ++ (show (x,y)) ++ " |" 
@@ -949,10 +920,10 @@ agentes dados. Retorna una tupla con los puntajes (score) finales del juego.
 runMatch :: (TakAgent, TakAgent) -> TakGame -> IO [(TakPlayer, Int)]
 runMatch ags@(ag1, ag2) g = do
    putStrLn (showBoard g)
-   case (activePlayer2 g) of
+   case (activePlayer g) of
       Nothing -> return $ result g
       Just p -> do
-         let ag = [ag1, ag2] !! (fromJust (elemIndex p players))
+         let ag = [ag1, ag2] !! (fromJust (elemIndex p players)) 
          move <- ag g
          runMatch ags (next g (p, fromJust move))
 {- La función ´runOnConsole´ ejecuta toda la partida a partir del estado inicial usando dos agentes
