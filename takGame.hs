@@ -16,7 +16,7 @@ coordenadasCasillero3x3 = (map (\n -> ("",(divMod n 3)))  [0..8])
 coordenadasCasillero4x4 = map (\n -> ("",(divMod n 4)))  [0..15]
 
 -- ejemplo de TakGame
-juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("o",(1,0)),("x",(1,1)),("",(1,2)),("xoxoxo",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
+juego3x3 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("oxox",(1,0)),("X",(1,1)),("",(1,2)),("x",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
 
 casillero3X3 = (fst juego3x3)
 juego3x32 = ([("o",(0,0)) ,("O",(0,1)),("O",(0,2)),("o",(1,0)),("x",(1,1)),("",(1,2)),("o",(2,0)),("o",(2,1)),("",(2,2))],BlackPlayer)
@@ -26,7 +26,7 @@ juegoVacio = ([],BlackPlayer)
 casilleroVacio = [("",(0,0)),("",(0,1)),("",(0,2)),("",(1,0)),("",(1,1)),("",(1,2)),("",(2,0)),("",(2,1)),("",(2,2))]
 
 
---- METODOS SOLICITADOS
+----------------------------------------------------------------- METODOS SOLICITADOS -------------------------------------------------------------
 
 beginning3x3 :: TakGame
 beginning3x3 = (coordenadasCasillero3x3, BlackPlayer)
@@ -35,7 +35,10 @@ beginning4x4 :: TakGame
 beginning4x4 = (coordenadasCasillero4x4, BlackPlayer)
 
 actions :: TakGame -> [(TakPlayer, [TakAction])]
-actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ generarAccionesMover (borrarCasosNoPosibles (activePlayer juego ) (casillasParaMover (obtenerCasillero juego)) )), (nonActivePlayer juego, [])]
+actions juego = [(activePlayer juego, (generarAccionesInsertar (obtenerCasillero juego)) ++ 
+                generarAccionesMover (borrarCasosNoPosibles (activePlayer juego) (casillasParaMover (obtenerCasillero juego)) )
+                ++ filtrarDesapilados juego (generarAccionesDesapilarJuego juego (obtenerCasillero juego))), (nonActivePlayer juego, [])]
+                
 
 activePlayer :: TakGame -> TakPlayer
 activePlayer (g, jugador) = jugador 
@@ -45,16 +48,7 @@ result juego =  if (juegoTerminado juego) then
                     [(activePlayer juego, 1), (nonActivePlayer juego, (-1))]
                 else
                     []
-{-
-next :: TakGame -> (TakPlayer, TakAction) -> TakGame
-next juego (jugador,accion)
-    | (activePlayer juego) /= jugador = error "jugador de la accion distinto al jugador que le toca jugar"
-    | juegoTerminado juego = error "juego terminado"
-    | elem accion (snd (head (actions juego))) == False = error "acción no posible"
-    | let acc1 = (Insertar (0,0) False) in acc1 == accion = realizarAccionInsertar (obtenerCasillero juego) (jugador,accion)
-    | let acc2 = (Mover (0,0) (0,0)) in acc2 == accion = realizarAccionMover (obtenerCasillero juego) (jugador,accion)
---    | let acc3 = (Desapilar (0,0), [] Abajo) in acc3 == accion = realizarAccionDesapilar (obtenerCasillero juego) (jugador, accion)
--}
+
 
 next :: TakGame -> (TakPlayer, TakAction) -> TakGame
 next juego (jugador, (Insertar (x,y) pared))
@@ -65,11 +59,9 @@ next juego (jugador, (Mover (x,y) (x2, y2)))
     | elem (Mover (x,y) (x2, y2)) (snd (head (actions juego))) = realizarAccionMover (obtenerCasillero juego) (jugador, (Mover (x,y) (x2, y2)))
     | otherwise = error "accion invalida"
 
-
-
---next juego (jugador, (Desapilar (x,y) cantidades direccion))
---    | elem (Desapilar (x,y) cantidades direccion) (snd (head (actions juego))) = realizarAccionDesapilar (obtenerCasillero juego) (jugador, (Desapilar (x,y) cantidades direccion))
---    | otherwise = error "accion invalida"
+next juego (jugador, (Desapilar (x,y) cantidades direccion))
+    | elem (Desapilar (x,y) cantidades direccion) (snd (head (actions juego))) = realizarAccionDesapilarManager juego (jugador, (Desapilar (x,y) cantidades direccion))
+    | otherwise = error "accion invalida"
 
 
 score :: TakGame -> [(TakPlayer, Int)]
@@ -82,7 +74,8 @@ showAction (Insertar (x, y) pared) = if (pared) then
                                         "||Insertar una ficha plana en " ++ (show (x,y))
 
 showAction (Mover (x, y) (x2, y2)) = "||Mover de: " ++ (show (x,y)) ++ "hacia: " ++ (show (x2, y2))
-showAction (Desapilar (x,y) cantidad direccion) = "||Desapilar desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " ++ (show direccion)
+
+showAction (Desapilar (x,y) cantidad direccion) =  "||Desapilar desde : " ++ (show (x,y)) ++ "en :" ++ (show cantidad) ++ " en direccion : " ++ (show direccion)
 
 showAction2 :: [TakAction] -> String
 showAction2 [] = "no hay mas acciones para mostrar "
@@ -97,45 +90,80 @@ readAction mensaje =
     if (head mensaje == '3') then -- tablero
         if (mensaje !! 1 == 'i') then -- inserta mueve desapila
             if (isDigit (mensaje!!2)) then 
-                if (mensaje !! 3 == 'p') then
-                    (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) False) 
+                if (mensaje !! 3 == 'p') then 
+                    (Insertar (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!2)))) False) 
                 else if (mensaje !! 3 == 'P') then
-                    (Insertar (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) True) 
+                    (Insertar (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!2)))) True) 
                 else
                     error "formato invalido"
             else
                 error "formato invalido"
         else if (mensaje !! 1 == 'm') then
             if (isDigit (mensaje!!2)) && (isDigit (mensaje!!3)) then
-                (Mover (posicionACoordenadas3x3 (digitToInt (mensaje!!2))) (posicionACoordenadas3x3 (digitToInt (mensaje!!3))))
+                (Mover (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!2)))) (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!3)))))
             else
                 error "formato invalido"
-        --else if (mensaje !! 1 == 'a') then
-                -- ACA SE COMPLICA
+        else if (mensaje !! 1 == 'd') then -- desapila
+            if (isDigit (mensaje !! 2)) then -- origen
+                    -- cantidad 1               -- cantidad 2
+                if (isDigit (mensaje !! 3)) && (isDigit (mensaje !! 4)) then -- la lista de los que dejas por casilla
+                    if (mensaje !! 5 == 'u') then
+                        (Desapilar (posicionACoordenadas3x3 (fromIntegral ((digitToInt (mensaje!!2))))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4)))] Arriba) 
+                    else if (mensaje !! 5 == 'd') then
+                        (Desapilar (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4)))] Abajo) 
+                    else if (mensaje !! 5 == 'l') then 
+                        (Desapilar (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4)))] Izquierda)
+                    else if (mensaje !! 5 == 'r') then 
+                        (Desapilar (posicionACoordenadas3x3 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4)))] Derecha)
+                    else 
+                        error "formato invalido"
+                else 
+                    error "formato invalido"
+            else 
+                error "formato invalido"
         else
             error "formato invalido"
+            
+            
     else if (head mensaje == '4') then
             if (mensaje !! 1 == 'i') then
                 if (isDigit (mensaje!!2) && isDigit (mensaje!!3)) then
                     if (mensaje !! 4 == 'p') then
-                        (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2)*10 + digitToInt (mensaje!!3))) False) 
+                        (Insertar (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2))*10 + fromIntegral (digitToInt (mensaje!!3)))) False) 
                     else if (mensaje !! 3 == 'P') then
-                            (Insertar (posicionACoordenadas4x4 (digitToInt (mensaje!!2)*10 + digitToInt (mensaje!!3))) True)
-                        else
-                            error "formato invalido"
+                            (Insertar (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2))*10 + fromIntegral (digitToInt (mensaje!!3)))) True)
+                    else
+                        error "formato invalido"
             else
                 error "formato invalido"
         else if (mensaje !! 1 == 'm') then
             if (isDigit (mensaje!!2) && isDigit (mensaje!!3) && isDigit (mensaje!!4) && isDigit (mensaje!!5)) then
-                (Mover (posicionACoordenadas4x4 (digitToInt (mensaje!!2)*10 + digitToInt (mensaje!!3))) (posicionACoordenadas4x4 (digitToInt (mensaje!!4)*10 + digitToInt (mensaje!!5))))
+                (Mover (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2))*10 + fromIntegral (digitToInt (mensaje!!3)))) (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!4))*10 + fromIntegral (digitToInt (mensaje!!5)))))
             else 
                 error "formato invalido"
-        --else if (mensaje !! 1 == 'a') then
-                -- ACA SE COMPLICA
+        else if (mensaje !! 1 == 'd') then -- desapila
+            if (isDigit (mensaje !! 2)) then -- origen
+                    -- cantidad 1               -- cantidad 2               -- cantidad 3
+                if (isDigit (mensaje !! 3)) && (isDigit (mensaje !! 4)) && (isDigit (mensaje !! 5)) then -- la lista de los que dejas por casilla
+                    if (mensaje !! 6 == 'u') then
+                        (Desapilar (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4))), (fromIntegral (digitToInt (mensaje!!5)))] Arriba) 
+                    else if (mensaje !! 6 == 'd') then
+                        (Desapilar (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4))), (fromIntegral (digitToInt (mensaje!!5)))] Abajo) 
+                    else if (mensaje !! 6 == 'l') then 
+                        (Desapilar (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4))), (fromIntegral (digitToInt (mensaje!!5)))] Izquierda)
+                    else if (mensaje !! 6 == 'r') then 
+                        (Desapilar (posicionACoordenadas4x4 (fromIntegral (digitToInt (mensaje!!2)))) [(fromIntegral (digitToInt (mensaje!!3))), (fromIntegral (digitToInt (mensaje!!4))), (fromIntegral (digitToInt (mensaje!!5)))] Derecha)
+                    else 
+                        error "formato invalido"
+                else
+                    error "formato invalido"
+            else 
+                error "formato invalido"
         else
             error "formato invalido"
     else
         error "formato invalido"
+
 
 showBoard :: TakGame -> String
 showBoard juego 
@@ -151,11 +179,25 @@ activePlayer2 g = listToMaybe [p | (p, as) <- actions g, not (null as)]
 
 players = [WhitePlayer, BlackPlayer]
 
--- METODOS AUXILIARES
+----------------------------------------------------------------- METODOS AUXILIARES -------------------------------------------------------------
 
-nonActivePlayer :: TakGame -> TakPlayer
-nonActivePlayer (g, WhitePlayer) = BlackPlayer
-nonActivePlayer (g, BlackPlayer) = WhitePlayer
+-------------------------------------------------------Sobre Casilleros -------------------------------------------------------------------
+buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
+buscarEnCasillero [] _ = []
+buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
+    | x == a && y == b = ((cad1++cad2,(a,b)):xs)
+    | otherwise = (cad1,(x,y)):(buscarEnCasillero xs (cad2,(a,b)))
+
+eliminarUltimaPosicion :: [Casillero] -> (Integer, Integer) -> [Casillero]
+eliminarUltimaPosicion ((cad1,(x,y)):xs) (a,b)
+    | x == a && y == b = ((drop 1 cad1,(a,b)):xs)
+    | otherwise = (cad1,(x,y)):(eliminarUltimaPosicion xs (a,b))
+
+topeDePila :: [Casillero] -> (Integer, Integer) -> [Char]
+topeDePila ((cad1,(x,y)):xs) (a,b)
+    | x == a && y == b && cad1 /= "" = [last cad1] 
+    | otherwise = topeDePila xs (a,b)
+topeDePila [] (_,_) = error "!"
 
 posicionACoordenadas3x3 :: Int -> (Integer, Integer)
 posicionACoordenadas3x3 num
@@ -166,6 +208,7 @@ posicionACoordenadas4x4 :: Int -> (Integer, Integer)
 posicionACoordenadas4x4 num
     | num <= 15 = snd ((fst beginning4x4) !! num)
     | otherwise = error "!"
+
 
 -- juegoValido determina si el juego es un juego valido, ejemplo: que en el tablero 3x3 no tenga mas de 9
 juegoValido :: TakGame -> Bool
@@ -186,11 +229,6 @@ obtenerCasillero juego
     | (fst juego) == [] = []
     | otherwise = (fst juego)
 
-juegoSinComenzar :: TakGame -> Bool
-juegoSinComenzar ((x:xs),y)
-    | (x:xs) == [] = True
-    | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
-    | otherwise = True
 
 contenidoCasillero :: [Casillero] -> (Integer, Integer) -> [Char]
 contenidoCasillero ((caracteres, (a,b)):xs) (x,y)
@@ -198,90 +236,9 @@ contenidoCasillero ((caracteres, (a,b)):xs) (x,y)
     | otherwise = contenidoCasillero xs (x,y)
 contenidoCasillero [] _ = error "casillero no encontrado"
 
-borrarCasosNoPosibles :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
-borrarCasosNoPosibles _ [] = []
-borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
-    if caracteres /= "" && (last caracteres == 'X' || last caracteres == 'x') then 
-        ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
-    else 
-        borrarCasosNoPosibles WhitePlayer xs      
-borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
-    if caracteres /= "" && (last caracteres == 'O' || last caracteres == 'o') then 
-        ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
-    else 
-        borrarCasosNoPosibles BlackPlayer xs                                        
-borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
-    | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'o' = borrarCasosNoPosibles WhitePlayer xs
-    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
-borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
-    | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'x' = borrarCasosNoPosibles BlackPlayer xs
-    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
+contenidoCasillero2 :: Casillero -> [Char]
+contenidoCasillero2 (caracteres,(x,y)) = caracteres
 
-generarAccionesInsertar :: [Casillero] -> [TakAction]
-generarAccionesInsertar [] = []
-generarAccionesInsertar ((caracteres, (a,b)):xs)
-    | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
-    | otherwise = generarAccionesInsertar xs
-
-generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
-generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
-generarAccionesMover [] = []
-
--- Desapilar (Integer, Integer) [Integer] Direccion
--- accionesDesapilados :: [(Casillero, [Integer])] -> Direccion -> [TakAction]
--- desapiladosPosiblesArriba :: [Casillero] -> Direccion -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
-
---- generarAccionesDesapilar :: [Casillero] -> Casillero -> [TakAction]
---- generarAccionesDesapilar ((caracteres,(a,b)):xs) (caracteres, (a,b)) = 
-
-
-desapiladosPosiblesArriba :: [Casillero] -> Direccion -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
-desapiladosPosiblesArriba juego Arriba (x, y) cantidad
-    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Arriba juego (snd (fst z)))) (outerProduct (crearCamino3X3 Arriba juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Arriba juego (snd (fst z)))) (outerProduct (crearCamino4X4 Arriba juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-
-
-
-desapiladosPosiblesAbajo :: [Casillero] -> Direccion -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
-desapiladosPosiblesAbajo juego Abajo (x, y) cantidad
-    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Abajo juego (snd (fst z)))) (outerProduct (crearCamino3X3 Abajo juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Abajo juego (snd (fst z)))) (outerProduct (crearCamino4X4 Abajo juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-
-
-desapiladosPosiblesIzquerda :: [Casillero] -> Direccion -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
-desapiladosPosiblesIzquerda juego Izquierda (x, y) cantidad
-    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Izquierda juego (snd (fst z)))) (outerProduct (crearCamino3X3 Izquierda juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Izquierda juego (snd (fst z)))) (outerProduct (crearCamino4X4 Izquierda juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-
-desapiladosPosiblesDerecha :: [Casillero] -> Direccion -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
-desapiladosPosiblesDerecha juego Derecha (x, y) cantidad
-    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Derecha juego (snd (fst z)))) (outerProduct (crearCamino3X3 Derecha juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Derecha juego (snd (fst z)))) (outerProduct (crearCamino4X4 Derecha juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
-
-
-accionesDesapilados :: [(Casillero, [Integer])] -> Direccion -> [TakAction]
-accionesDesapilados [] _ = []
-accionesDesapilados (((caracteres, (x,y)), lista):xs) direccion = (Desapilar (x, y) ( lista) direccion) : accionesDesapilados xs direccion
-
-listaIntToInteger :: [Int] -> [Integer]
-listaIntToInteger [] = []
-listaIntToInteger (x:xs) = fromIntegral x : listaIntToInteger xs
-
-listaIntegerToInt :: [Integer] -> [Int]
-listaIntegerToInt [] = []
-listaIntegerToInt (x:xs) = fromInteger x : listaIntegerToInt xs
-
-f2 :: a -> [a] ->[(a,a)]
-f2 a [] = []
-f2 a (h:t) = (a,h):(f2 a t)
-
-f3 :: [a] -> a -> [(a,a)]
-f3 [] a = []
-f3 (x:xs) a = (x,a): f3 xs a
-
-filtrarMovimientos :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
-filtrarMovimientos WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'x' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs)
-filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'o' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs) 
 
 casillasParaMover :: [Casillero] -> [(Casillero, Casillero)]
 casillasParaMover [] = []
@@ -308,12 +265,233 @@ controlDeCaracteres (caracteres,(x,y))
     | (length caracteres) < 0 = error "cantidad de caracteres en una pila no valido"
     | otherwise = True
 
-sumaNumero :: Int -> [[Int]]
-sumaNumero 0 = [[0]]
-sumaNumero 1 = [[1]]
-sumaNumero x = quitarDuplicados ([w : z | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
-     ++ [z ++ [w] | y<-[1..(x - 1)], w<-[1..(x - 1)], z<-(sumaNumero y), x == w + (sum z)]
-     ++ [[y] ++ [z] | y<-[1..(x - 1)], z<-[1..(x - 1)] ,y + z == x])
+
+insertarCaracteres :: Casillero -> [Char] -> Casillero  --concatena una cadena de caracteres en un casillero
+insertarCaracteres cas newCaracter = ((fst cas ++ newCaracter),snd cas)
+
+
+
+cambiarCasilla :: Casillero -> [Casillero] -> [Casillero]
+cambiarCasilla (caracteres,(x,y)) ((caracteres2,(a,b)):xs)
+    | (x,y) == (a,b) = ((caracteres,(a,b)):xs)
+    | otherwise = (caracteres2,(a,b)) : cambiarCasilla (caracteres,(x,y)) xs
+
+esPosible :: [Casillero] -> Casillero -> [Casillero]
+esPosible [] _ = []
+esPosible (x:xs) casilla = if elem casilla (casillasPosibles (x:xs)) then [casilla] else []
+
+
+obtenerCasilla :: [Casillero] -> (Integer,Integer) -> Casillero
+obtenerCasilla [] _ = ("z",(10,10))
+obtenerCasilla ((caracteres,(x,y)):xs) (a,b)
+    | x == a && y == b = (caracteres,(x,y))
+    | otherwise = obtenerCasilla xs (a,b)
+
+casillaSiguienteDireccion :: Direccion -> [Casillero] -> (Integer,Integer) -> Casillero
+casillaSiguienteDireccion dir (x:xs) (a,b) 
+    | dir == Arriba = (devolverCamino [((seMueveArriba (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Abajo = (devolverCamino [((seMueveAbajo (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Derecha = (devolverCamino [((seMueveDerecha (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
+    | dir == Izquierda = (devolverCamino [((seMueveIzquierda (obtenerCasilla (x:xs) (a,b)) x),x) | x <- (intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs))])
+
+
+---------------------------------------- Accion Insertar -------------------------------------------------------
+
+
+generarAccionesInsertar :: [Casillero] -> [TakAction]
+generarAccionesInsertar [] = []
+generarAccionesInsertar ((caracteres, (a,b)):xs)
+    | caracteres == "" = (Insertar (a,b) True) : (Insertar (a,b) False) : generarAccionesInsertar xs
+    | otherwise = generarAccionesInsertar xs
+
+
+realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
+realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
+        if (controlDeCaracteres (caracteres,(x,y))) then
+            if jugadorAct == WhitePlayer then
+                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("X",(a,b))),BlackPlayer)
+                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("x",(a,b))),BlackPlayer)
+            else 
+                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("O",(a,b))),WhitePlayer)
+                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
+        else error "No se puede insertar a una pila"
+
+
+intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
+intersectCercaYPosible casilla (x:xs) = intersect (casillasPosibles (x:xs)) (casillasCercanas (x:xs) casilla)
+
+posibilidadesCasillero :: Casillero -> [Char]
+posibilidadesCasillero (caracteres,(a,b))
+    | length caracteres >= 4 = drop 4 caracteres
+    | otherwise = take (length caracteres ) caracteres
+
+
+
+------------------------------------------------------------------------------------------
+
+
+------------------------------- Acciones Mover-------------------------------------------
+
+generarAccionesMover :: [(Casillero, Casillero)] -> [TakAction]
+generarAccionesMover (((_, (a,b)),(_, (a2,b2))):xs)  = (Mover (a,b) (a2,b2)) : generarAccionesMover xs
+generarAccionesMover [] = []
+
+
+filtrarMovimientos :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
+filtrarMovimientos WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'x' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs)
+filtrarMovimientos BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs) = filter (\x -> last caracteres == 'o' && caracteres /= "" && last caracteres2 /= 'X' && last caracteres2 /= 'O') (((caracteres, (x,y)), (caracteres2, (x2,y2))):xs) 
+
+realizarAccionMover :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
+realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
+
+
+
+borrarCasosNoPosibles :: TakPlayer -> [(Casillero, Casillero)] -> [(Casillero, Casillero)]
+borrarCasosNoPosibles _ [] = []
+borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
+    if caracteres /= "" && (last caracteres == 'X' || last caracteres == 'x') then 
+        ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
+    else 
+        borrarCasosNoPosibles WhitePlayer xs      
+borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), (([], (x2,y2)))):xs) = 
+    if caracteres /= "" && (last caracteres == 'O' || last caracteres == 'o') then 
+        ((caracteres, (x,y)), (([], (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
+    else 
+        borrarCasosNoPosibles BlackPlayer xs                                        
+borrarCasosNoPosibles WhitePlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
+    | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'o' = borrarCasosNoPosibles WhitePlayer xs
+    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles WhitePlayer xs
+borrarCasosNoPosibles BlackPlayer (((caracteres, (x,y)), ((caracteres2, (x2,y2)))):xs)
+    | caracteres == "" || last caracteres2 == 'X' || last caracteres2 == 'O' || last caracteres2 == 'x' = borrarCasosNoPosibles BlackPlayer xs
+    | otherwise = ((caracteres, (x,y)), ((caracteres2, (x2,y2)))): borrarCasosNoPosibles BlackPlayer xs
+
+
+
+
+
+--------------------------------- Accion Desapilar ---------------------
+
+
+
+
+
+
+
+
+
+
+
+
+nonActivePlayer :: TakGame -> TakPlayer
+nonActivePlayer (g, WhitePlayer) = BlackPlayer
+nonActivePlayer (g, BlackPlayer) = WhitePlayer
+
+
+
+
+
+juegoSinComenzar :: TakGame -> Bool
+juegoSinComenzar ((x:xs),y)
+    | (x:xs) == [] = True
+    | (fst x ) == "x" || (fst x ) == "X" || (fst x ) == "o"  || (fst x ) == "O" = False
+    | otherwise = True
+
+
+
+
+
+
+
+desapiladosPosiblesArriba :: [Casillero] -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
+desapiladosPosiblesArriba juego (x, y) cantidad
+    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Arriba juego (snd (fst z)))) (outerProduct (crearCamino3X3 Arriba juego (x,y))  (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad)))
+    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Arriba juego (snd (fst z)))) (outerProduct (crearCamino4X4 Arriba juego (x,y))  (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad)))
+
+
+desapiladosPosiblesAbajo :: [Casillero] -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
+desapiladosPosiblesAbajo juego (x, y) cantidad
+    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Abajo juego (snd (fst z)))) (outerProduct (crearCamino3X3 Abajo juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
+    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Abajo juego (snd (fst z)))) (outerProduct (crearCamino4X4 Abajo juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
+
+
+desapiladosPosiblesIzquierda :: [Casillero] -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
+desapiladosPosiblesIzquierda juego (x, y) cantidad
+    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Izquierda juego (snd (fst z)))) (outerProduct (crearCamino3X3 Izquierda juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
+    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Izquierda juego (snd (fst z)))) (outerProduct (crearCamino4X4 Izquierda juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
+
+desapiladosPosiblesDerecha :: [Casillero] -> (Integer,Integer) -> Int -> [(Casillero, [Integer])]
+desapiladosPosiblesDerecha juego (x, y) cantidad
+    | length (juego) == 9 = filter (\z -> length (snd z) <= length (crearCamino3X3 Derecha juego (snd (fst z)))) (outerProduct (crearCamino3X3 Derecha juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
+    | length (juego) == 16 = filter (\z -> length (snd z) <= length (crearCamino4X4 Derecha juego (snd (fst z)))) (outerProduct (crearCamino4X4 Derecha juego (x,y)) (posibilidades2 (listaIntToInteger [1..cantidad]) (fromIntegral cantidad))) 
+
+accionesDesapilados :: [(Casillero, [Integer])] -> Direccion -> [TakAction]
+accionesDesapilados [] _ = []
+accionesDesapilados (((caracteres, (x,y)), lista):xs) direccion = (Desapilar (x, y) (lista) direccion) : accionesDesapilados xs direccion
+
+realizarAccionDesapilarManager :: TakGame -> (TakPlayer, TakAction) -> TakGame
+realizarAccionDesapilarManager juego (jugador, accion)
+    | length (obtenerCasillero juego) == 9 = realizarAccionDesapilar3x3 juego (jugador, accion)
+    | length (obtenerCasillero juego) == 16 = realizarAccionDesapilar4x4 juego (jugador, accion)
+
+
+
+
+generarAccionesDesapilarParaUnCasillero :: TakGame -> Casillero -> Int -> [TakAction]
+generarAccionesDesapilarParaUnCasillero ([],_) _ _ = []
+generarAccionesDesapilarParaUnCasillero (juego, jugador) (caracteres, (x,y)) num = 
+    if (num >= 1) then (accionesDesapilados (desapiladosPosiblesAbajo (juego) (x,y) num) Abajo) ++ 
+                        (accionesDesapilados (desapiladosPosiblesArriba (juego) (x,y) num) Arriba) ++ 
+                        (accionesDesapilados (desapiladosPosiblesDerecha (juego) (x,y) num) Derecha) ++ 
+                        (accionesDesapilados (desapiladosPosiblesIzquierda (juego) (x,y) num) Arriba) ++ 
+                        generarAccionesDesapilarParaUnCasillero (juego, jugador) (caracteres, (x,y)) (num-1)
+    else []
+
+generarAccionesDesapilarJuego :: TakGame -> [Casillero] -> [TakAction]
+generarAccionesDesapilarJuego _ [] = []
+generarAccionesDesapilarJuego juego (x:xs)  = (generarAccionesDesapilarParaUnCasillero juego x (length (contenidoCasillero2 x))) ++ generarAccionesDesapilarJuego juego xs 
+
+filtrarDesapilados :: TakGame -> [TakAction] -> [TakAction]
+filtrarDesapilados ([],_) [] = []
+filtrarDesapilados _ [] = []
+filtrarDesapilados (juego,jugador) ((Desapilar (x,y) (z:zs) direccion):ds) =
+    if (length juego == 9) then
+        if length (contenidoCasillero juego (x,y)) >= (foldr (+) 0 (listaIntegerToInt (z:zs))) &&
+            (length (contenidoCasillero juego (x,y)) >= 2) &&
+            (length (crearCamino3X3 direccion juego (x,y)) - 1) >= length (z:zs) then
+  
+            (Desapilar (x,y) (z:zs) direccion) : (filtrarDesapilados (juego,jugador) ds)
+
+        else 
+            filtrarDesapilados (juego,jugador) ds
+    else if (length juego == 16) then
+        if length (contenidoCasillero juego (x,y)) >= (foldr (+) 0 (listaIntegerToInt (z:zs)))  &&
+            length (contenidoCasillero juego (x,y)) >= 2 &&
+            length (crearCamino4X4 direccion juego (x,y)) - 1 >= length (z:zs) then
+  
+            (Desapilar (x,y) (z:zs) direccion) : (filtrarDesapilados (juego,jugador) ds)
+
+        else 
+            filtrarDesapilados (juego,jugador) ds
+    else
+        error "!"
+
+listaIntToInteger :: [Int] -> [Integer]
+listaIntToInteger [] = []
+listaIntToInteger (x:xs) = fromIntegral x : listaIntToInteger xs
+
+listaIntegerToInt :: [Integer] -> [Int]
+listaIntegerToInt [] = []
+listaIntegerToInt (x:xs) = fromInteger x : listaIntegerToInt xs
+
+f2 :: a -> [a] ->[(a,a)]
+f2 a [] = []
+f2 a (h:t) = (a,h):(f2 a t)
+
+f3 :: [a] -> a -> [(a,a)]
+f3 [] a = []
+f3 (x:xs) a = (x,a): f3 xs a
+
 
 quitarDuplicados :: (Eq a) => [a] -> [a]
 quitarDuplicados [] = []
@@ -348,11 +526,13 @@ intercala x (y:ys) = (x:y:ys) : [y:zs | zs <- intercala x ys]
 
 posibilidades2 :: [Integer] -> Integer -> [[Integer]]
 posibilidades2 [] _ = []
-posibilidades2  list num = init (quitarDuplicados2 (posibilidades (makeChangeSolutions list num)))
+posibilidades2  list num =  init (init([tail x | x <- (quitarDuplicados2 (posibilidades (makeChangeSolutions list num)))]))
 
 posibilidades :: [[Integer]] -> [[Integer]]
 posibilidades [] = [[]]
 posibilidades (x:xs) = permutaciones x ++ posibilidades xs
+
+
 
 
 direccion :: Casillero -> Casillero -> Direccion
@@ -362,56 +542,25 @@ direccion (caracteres,(x,y)) (caracteres2,(x2,y2))
     | x == x2 && y > y2 = Derecha
     | x == x2 && y < y2 = Izquierda 
 
--- movimiento vertical
---seMueveEnX :: Casillero -> [Casillero] -> Bool
---seMueveEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if  ((x+1,y) == (a,b) || (x-1,y) == (a,b)) && seMueveEnX (caracteres2,(a,b)) xs
 
--- se mueve hacia la derecha
---seMueveDerecha :: Casillero -> [Casillero] -> Bool
---seMueveDerecha (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveDerecha (caracteres2,(a,b)) xs
 
--- movimiento horizontal
-seMueveEnY :: Casillero -> [Casillero] -> Bool
-seMueveEnY (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = ((x,y+1) == (a,b) || (x,y-1) == (a,b)) && seMueveEnY (caracteres2,(a,b)) xs
---}
+realizarAccionDesapilar3x3 :: TakGame -> (TakPlayer, TakAction) -> TakGame
+realizarAccionDesapilar3x3 (juego, jugador) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
+    | direccion == Arriba = (desapilarArriba3x3 juego  juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
+    | direccion == Izquierda = (desapilarIzquierda3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
+    | direccion == Abajo = ((desapilarAbajo3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
+    | direccion == Derecha = ((desapilarDerecha3x3 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
 
-{--
-moverPilaEnX :: Casillero -> [Casillero] ->  
-moverPilaEnX (caracteres,(x,y)) ((caracteres2,(a,b)):xs) = if 
---}
 
-realizarAccionInsertar :: [Casillero] -> (TakPlayer,TakAction) -> TakGame
-realizarAccionInsertar ((caracteres,(x,y)):xs) (jugadorAct, (Insertar (a,b) bool)) = 
-        if (controlDeCaracteres (caracteres,(x,y))) then
-            if jugadorAct == WhitePlayer then
-                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("X",(a,b))),BlackPlayer)
-                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("x",(a,b))),BlackPlayer)
-            else 
-                if bool then ((buscarEnCasillero ((caracteres,(x,y)):xs) ("O",(a,b))),WhitePlayer)
-                else ((buscarEnCasillero ((caracteres,(x,y)):xs) ("o",(a,b))),WhitePlayer)
-        else error "No se puede insertar a una pila"
-
-realizarAccionMover :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
-realizarAccionMover tablero (WhitePlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), BlackPlayer)
-realizarAccionMover tablero (BlackPlayer, (Mover (xOrigen, yOrigen) (xDestino, yDestino))) = (eliminarUltimaPosicion (buscarEnCasillero tablero (topeDePila tablero (xOrigen, yOrigen), (xDestino, yDestino))) (xOrigen, yOrigen), WhitePlayer)
+realizarAccionDesapilar4x4 :: TakGame -> (TakPlayer, TakAction) -> TakGame
+realizarAccionDesapilar4x4 (juego, jugador) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
+    | direccion == Arriba = (desapilarArriba4x4 juego  juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
+    | direccion == Izquierda = (desapilarIzquierda4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador))
+    | direccion == Abajo = ((desapilarAbajo4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
+    | direccion == Derecha = ((desapilarDerecha4x4 juego juego (jugadorAct, (Desapilar (a,b) (z:zs) direccion)), nonActivePlayer (juego, jugador)))
 
 
 
-
-
--- Desapilar (Integer, Integer) [Integer] Direccion
-{-
-realizarAccionDesapilar3x3 :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
-realizarAccionDesapilar3x3 ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
-    | direccion == Arriba = desapilarArriba3x3 ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
-    | direccion == Izquierda = desapilarIzquierda3x3 ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
-    | direccion == Abajo = desapilarAbajo3x3 ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
-    | direccion == Derecha = desapilarDerecha3x3 ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) direccion))
--}
-insertarCaracteres :: Casillero -> [Char] -> Casillero  --concatena una cadena de caracteres en un casillero
-insertarCaracteres cas newCaracter = ((fst cas ++ newCaracter),snd cas)
-
---- insertarEnCasilleroSigPos no funca si direccion es abajo
 insertarEnCasilleroSigPos :: [Casillero] -> Direccion -> (Integer,Integer) -> [Char] -> [Casillero]
 insertarEnCasilleroSigPos [] _ _ _ = []
 insertarEnCasilleroSigPos ((caracteres,(x,y)):xs) direccion (a,b) cad = 
@@ -424,14 +573,8 @@ desapilarDeCasilla (caracteres,(a,b)) cantidad = (((take ((length caracteres) - 
 desapilarDeCasilla2 :: Casillero -> [Integer] -> (Casillero,[[Char]])
 desapilarDeCasilla2 (caracteres,(a,b)) (z:zs) = (((take ((length caracteres) - (foldr (+) 0 (listaIntegerToInt (z:zs)))) caracteres),(a,b)), cadenaConLista (drop ((length caracteres) - (foldr (+) 0 (listaIntegerToInt (z:zs))))  caracteres) (listaIntegerToInt (z:zs)))
 
---- "xoxoxox" [1,2,3] = ("x", (["o"],["xo"],["xox"]))
 
-splitAt' = \n -> \xs -> (take n xs, drop n xs)
 
-cambiarCasilla :: Casillero -> [Casillero] -> [Casillero]
-cambiarCasilla (caracteres,(x,y)) ((caracteres2,(a,b)):xs)
-    | (x,y) == (a,b) = ((caracteres,(a,b)):xs)
-    | otherwise = (caracteres2,(a,b)) : cambiarCasilla (caracteres,(x,y)) xs
 
 cadenaConLista :: [Char] -> [Int] -> [([Char])]
 cadenaConLista [] _ = []
@@ -442,47 +585,188 @@ cadenaConLista cadena (x:xs) = (take  x cadena) : cadenaConLista (drop x cadena)
 
 -- disminuyen las x
 desapilarArriba3x3 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarArriba3x3 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarArriba3x3 [] _ _ = error "Casillero Vacio 1"
+desapilarArriba3x3 _ [] _ = error "Casillero Vacio 2" 
 desapilarArriba3x3 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)) =
-    if x == a && y == b then 
-        if (length caracteres) > (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
-             -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+    if (a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) >= (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
                 if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
                 else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
-                    if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Arriba (a,b) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                    if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Arriba (a-1,b) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
                     else  -- [1,2]
                         if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Arriba (a-1,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Arriba (a-2,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
-                        else []
-               
-        else []
-    else    (desapilarArriba3x3 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)))
+                        else error "No se puede desapila fuera del tablero"
+                
+            else error "No hay fichas suficientes para desapilar"
+    
+        else    (desapilarArriba3x3 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)))
       
-{-
-            if (seMueveArriba ("",(a,b)) x | x <- (intersectCercaYPosible ((caracteres,(x,y)):xs) ("",(1,1)))) then 
-            
-            --(((take (foldr (+) 0 (z:zs)) caracteres), (x,y)) : xs)
-        else
-            (((caracteres,(x,y)):xs) : desapilarArriba xs (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)))
+desapilarAbajo3x3 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarAbajo3x3 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarAbajo3x3 [] _ _ = error "Casillero Vacio 1"
+desapilarAbajo3x3 _ [] _ = error "Casillero Vacio 2" 
+desapilarAbajo3x3 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Abajo)) =
+    if (a,b) == (2,0) || (a,b) == (2,1) || (a,b) == (2,2) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) > (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                    if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                    else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                        if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Abajo (a+1,b) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                        else  -- [1,2]
+                            if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Abajo (a+1,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Abajo (a+2,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
+                            else error "No se puede desapila fuera del tablero"
+                
+            else error "No hay fichas suficientes para desapilar"
+        
+        else    (desapilarAbajo3x3 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Abajo)))
 
 
+desapilarDerecha3x3 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarDerecha3x3 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarDerecha3x3 [] _ _ = error "Casillero Vacio 1"
+desapilarDerecha3x3 _ [] _ = error "Casillero Vacio 2" 
+desapilarDerecha3x3 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Derecha)) =
+    if (a,b) == (0,2) || (a,b) == (1,2) || (a,b) == (2,2) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) > (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                    if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                    else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                        if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Derecha (a,b+1) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                        else  -- [1,2]
+                            if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Derecha (a,b+1) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Derecha (a,b+2) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
+                            else error "No se puede desapila fuera del tablero"
+                
+            else error "No hay fichas suficientes para desapilar"
+        
+        else    (desapilarDerecha3x3 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Derecha)))
 
--- aumentan las x
-desapilarAbajo :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
 
--- disminuyen las y
-desapilarIzquierda :: [Casillero] -> (TakPlayer, TakAction) -> TakGame
+desapilarIzquierda3x3 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarIzquierda3x3 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarIzquierda3x3 [] _ _ = error "Casillero Vacio 1"
+desapilarIzquierda3x3 _ [] _ = error "Casillero Vacio 2" 
+desapilarIzquierda3x3 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Izquierda)) =
+    if (a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) > (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                    if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                    else    --- lo que hace la linea de Izquierda es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                        if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Izquierda (a,b-1) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                        else  -- [1,2]
+                            if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Izquierda (a,b-1) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Izquierda (a,b-2) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
+                            else error "No se puede desapila fuera del tablero"
+                
+            else error "No hay fichas suficientes para desapilar"
+        
+        else    (desapilarIzquierda3x3 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Izquierda)))
 
--- aumentan las y
-desapilarDerecha :: [Casillero] -> (TakPlayer, TakAction) -> TakGame         
--}
 
--- (integer,Integer) pos inicial
+desapilarArriba4x4 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarArriba4x4 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarArriba4x4 [] _ _ = error "Casillero Vacio 1"
+desapilarArriba4x4 _ [] _ = error "Casillero Vacio 2" 
+desapilarArriba4x4 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)) =
+    if (a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) || (a,b) == (0,3) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) >= (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                    if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Arriba (a-1,b) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                    else  -- [1,2]
+                        if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Arriba (a-1,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Arriba (a-2,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
+                        else 
+                            if length (z:zs) == 3 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Arriba (a-1,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Arriba (a-2,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) Arriba (a-3,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 2)) 
+                            else error "No se puede desapila fuera del tablero"
+            else error "No hay fichas suficientes para desapilar"
+    
+        else    (desapilarArriba4x4 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Arriba)))
 
+
+desapilarAbajo4x4 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarAbajo4x4 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarAbajo4x4 [] _ _ = error "Casillero Vacio 1"
+desapilarAbajo4x4 _ [] _ = error "Casillero Vacio 2" 
+desapilarAbajo4x4 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Abajo)) =
+    if (a,b) == (3,0) || (a,b) == (3,1) || (a,b) == (3,2) || (a,b) == (3,3) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) > (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                    if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                    else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                        if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Abajo (a+1,b) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                        else  -- [1,2]
+                            if length (z:zs) == 3 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Abajo (a+1,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Abajo (a+2,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) Abajo (a+3,b) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 2)) 
+                            else error "No se puede desapila fuera del tablero"
+                
+            else error "No hay fichas suficientes para desapilar"
+        
+        else    (desapilarAbajo4x4 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Abajo)))
+
+desapilarIzquierda4x4 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarIzquierda4x4 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarIzquierda4x4 [] _ _ = error "Casillero Vacio 1"
+desapilarIzquierda4x4 _ [] _ = error "Casillero Vacio 2" 
+desapilarIzquierda4x4 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Izquierda)) =
+    if (a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0) || (a,b) == (3,0) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) >= (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                    if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Izquierda (a,b-1) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                    else  -- [1,2]
+                        if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Izquierda (a,b-1) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Izquierda (a,b-2) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
+                        else 
+                            if length (z:zs) == 3 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Izquierda (a,b-1) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Izquierda (a,b-2) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) Izquierda (a,b-3) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 2)) 
+                            else error "No se puede desapila fuera del tablero"
+            else error "No hay fichas suficientes para desapilar"
+    
+        else    (desapilarIzquierda4x4 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Izquierda)))
+
+
+desapilarDerecha4x4 :: [Casillero] -> [Casillero] -> (TakPlayer, TakAction) -> [Casillero]
+desapilarDerecha4x4 _ _ (_ ,(Desapilar _ [] _)) = error "Lista vacia"
+desapilarDerecha4x4 [] _ _ = error "Casillero Vacio 1"
+desapilarDerecha4x4 _ [] _ = error "Casillero Vacio 2" 
+desapilarDerecha4x4 juego ((caracteres,(x,y)):xs) (jugadorAct, (Desapilar (a,b) (z:zs) Derecha)) =
+    if (a,b) == (0,3) || (a,b) == (1,3) || (a,b) == (2,3) || (a,b) == (3,3) then error "accion invalida"
+    else
+        if x == a && y == b then 
+            if (length caracteres) >= (foldr (+) 0 (listaIntegerToInt (z:zs))) then 
+                -- por ej tenemos 3 casillas y [1,2] se debe separar en las 2 casillas,
+                if  length (z:zs) == 0 then error "no se puede realizar esta accion"       --si tenemos [1,2,1] se separa en las 3 casillas 
+                else    --- lo que hace la linea de abajo es toma los caracteres que se quieren sacar y se los quita a los que estan en la posicion (a,b). Despues busca en la sig posicion en la direccion y le agrega la cadena 
+                    if length (z:zs) == 1 then cambiarCasilla (fst (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z)))  (insertarEnCasilleroSigPos juego Derecha (a,b+1) (snd (desapilarDeCasilla (caracteres,(x,y)) (fromInteger z))))
+                    else  -- [1,2]
+                        if length (z:zs) == 2 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Derecha (a,b+1) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Derecha (a,b+2) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) 
+                        else 
+                            if length (z:zs) == 3 then cambiarCasilla (fst (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs)))  (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos (insertarEnCasilleroSigPos juego Derecha (a,b+1) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 0)) Derecha (a,b-2) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 1)) Derecha (a,b+3) ((snd (desapilarDeCasilla2 (caracteres,(x,y)) (z:zs))) !! 2)) 
+                            else error "No se puede desapila fuera del tablero"
+            else error "No hay fichas suficientes para desapilar"
+    
+        else    (desapilarDerecha4x4 juego xs (jugadorAct, (Desapilar (a,b) (z:zs) Derecha)))
+
+        
 
 --- crear Camino 3X3
 crearCaminoArriba3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoArriba3x3 _ [] _ = []
 crearCaminoArriba3x3 direccion (x:xs) (a,b)
-    | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2)) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
+    | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba3x3 direccion (xs) (a-1,b)) (a-1,b))) ++ [casillaSiguienteDireccion direccion (x:xs) (a-1,b)]
 
 outerProduct xs ys =
@@ -494,20 +778,20 @@ outerProduct xs ys =
 crearCaminoAbajo3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoAbajo3x3 _ [] _ = []
 crearCaminoAbajo3x3 direccion (x:xs) (a,b)
-    | ((a,b) == (2,0) || (a,b) == (2,1) || (a,b) == (2,2)) && direccion == Abajo = [(obtenerCasilla (x:xs) (a,b))]
+    | ((a,b) == (2,0) || (a,b) == (2,1) || (a,b) == (2,2) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Abajo = [(obtenerCasilla (x:xs) (a,b))]
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoAbajo3x3 direccion (xs) (a+1,b)) (obtenerCasilla (crearCaminoAbajo3x3 direccion (xs) (a+1,b)) (a+1,b))) ++ [casillaSiguienteDireccion direccion (x:xs) (a+1,b)]
 
 crearCaminoDerecha3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoDerecha3x3 _ [] _ = []
 crearCaminoDerecha3x3 direccion (x:xs) (a,b)
-    | ((a,b) == (0,2) || (a,b) == (1,2) || (a,b) == (2,2))  && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
+    | ((a,b) == (0,2) || (a,b) == (1,2) || (a,b) == (2,2) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoDerecha3x3 direccion (xs) (a,b+1)) (obtenerCasilla (crearCaminoDerecha3x3 direccion (xs) (a,b+1)) (a,b+1))) ++ [casillaSiguienteDireccion direccion (x:xs) (a,b+1)]
 
 
 crearCaminoIzquierda3x3 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoIzquierda3x3 _ [] _ = []
 crearCaminoIzquierda3x3 direccion (x:xs) (a,b)
-    | ((a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0)) && direccion == Izquierda = [(obtenerCasilla (x:xs) (a,b))] 
+    | ((a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Izquierda = [(obtenerCasilla (x:xs) (a,b))] 
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoIzquierda3x3 direccion (xs) (a,b-1)) (obtenerCasilla (crearCaminoIzquierda3x3 direccion (xs) (a,b-1)) (a,b-1))) ++ [casillaSiguienteDireccion direccion (x:xs) (a,b-1)]
 
 crearCamino3X3 :: Direccion -> [Casillero] -> (Integer,Integer) -> [Casillero]
@@ -523,25 +807,25 @@ crearCamino3X3 direccion (x:xs) (a,b)
 crearCaminoArriba4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoArriba4x4 _ [] _ = []
 crearCaminoArriba4x4 direccion (x:xs) (a,b)
-    | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) || (a,b) == (0,3)) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
+    | ((a,b) == (0,0) || (a,b) == (0,1) || (a,b) == (0,2) || (a,b) == (0,3) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Arriba = [(obtenerCasilla (x:xs) (a,b))]
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoArriba4x4 direccion (xs) (a-1,b)) (obtenerCasilla (crearCaminoArriba4x4 direccion (xs) (a-1,b)) (a-1,b))) ++ [casillaSiguienteDireccion direccion (x:xs) (a-1,b)]
 
 crearCaminoAbajo4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoAbajo4x4 _ [] _ = []
 crearCaminoAbajo4x4 direccion (x:xs) (a,b)
-    | ((a,b) == (3,0) || (a,b) == (3,1) || (a,b) == (3,2) || (a,b) == (3,3)) && direccion == Abajo = [(obtenerCasilla (x:xs) (a,b))]
+    | ((a,b) == (3,0) || (a,b) == (3,1) || (a,b) == (3,2) || (a,b) == (3,3) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x)))  && direccion == Abajo = [(obtenerCasilla (x:xs) (a,b))]
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoAbajo4x4 direccion (xs) (a+1,b)) (obtenerCasilla (crearCaminoAbajo4x4 direccion (xs) (a+1,b)) (a+1,b))) ++ [casillaSiguienteDireccion direccion (x:xs) (a+1,b)]
 
 crearCaminoDerecha4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoDerecha4x4 _ [] _ = []
 crearCaminoDerecha4x4 direccion (x:xs) (a,b)
-    | ((a,b) == (0,3) || (a,b) == (1,3) || (a,b) == (2,3) || (a,b) == (3,3)) && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
+    | ((a,b) == (0,3) || (a,b) == (1,3) || (a,b) == (2,3) || (a,b) == (3,3) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x))) && direccion == Derecha = [(obtenerCasilla (x:xs) (a,b)) ] 
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoDerecha4x4 direccion (xs) (a,b+1)) (obtenerCasilla (crearCaminoDerecha4x4 direccion (xs) (a,b+1)) (a,b+1))) ++ [casillaSiguienteDireccion direccion (x:xs) (a,b+1)]
 
 crearCaminoIzquierda4x4 :: Direccion -> [Casillero]  -> (Integer,Integer) -> [Casillero]
 crearCaminoIzquierda4x4 _ [] _ = []
 crearCaminoIzquierda4x4 direccion (x:xs) (a,b)
-    | ((a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0) || (a,b) == (3,0)) && direccion == Izquierda = [(obtenerCasilla (x:xs) (a,b))] 
+    | ((a,b) == (0,0) || (a,b) == (1,0) || (a,b) == (2,0) || (a,b) == (3,0) || (elem 'X' (contenidoCasillero2 x)) || (elem 'O' (contenidoCasillero2 x)))  && direccion == Izquierda = [(obtenerCasilla (x:xs) (a,b))] 
     | otherwise = (obtenerCasilla (x:xs) (a,b)) : (esPosible (crearCaminoIzquierda4x4 direccion (xs) (a,b-1)) (obtenerCasilla (crearCaminoIzquierda4x4 direccion (xs) (a,b-1)) (a,b-1))) ++ [casillaSiguienteDireccion direccion (x:xs) (a,b-1)]
 
 crearCamino4X4 :: Direccion -> [Casillero] -> (Integer,Integer) -> [Casillero]
@@ -555,31 +839,9 @@ crearCamino4X4 direccion (x:xs) (a,b)
 
 
 
-esPosible :: [Casillero] -> Casillero -> [Casillero]
-esPosible [] _ = []
-esPosible (x:xs) casilla = if elem casilla (casillasPosibles (x:xs)) then [casilla] else []
-
-{--
-oxoxo O O
-o x ""
-o o ""
-
---}
 
 
-casillaSiguienteDireccion :: Direccion -> [Casillero] -> (Integer,Integer) -> Casillero
-casillaSiguienteDireccion dir (x:xs) (a,b) 
-    | dir == Arriba = (devolverCamino [((seMueveArriba (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
-    | dir == Abajo = (devolverCamino [((seMueveAbajo (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
-    | dir == Derecha = (devolverCamino [((seMueveDerecha (obtenerCasilla (x:xs) (a,b)) x),x) | x <- ((intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs)))])
-    | dir == Izquierda = (devolverCamino [((seMueveIzquierda (obtenerCasilla (x:xs) (a,b)) x),x) | x <- (intersectCercaYPosible (obtenerCasilla (x:xs) (a,b))  (x:xs))])
 
-
-obtenerCasilla :: [Casillero] -> (Integer,Integer) -> Casillero
-obtenerCasilla [] _ = ("z",(10,10))
-obtenerCasilla ((caracteres,(x,y)):xs) (a,b)
-    | x == a && y == b = (caracteres,(x,y))
-    | otherwise = obtenerCasilla xs (a,b)
 
 
 quitarError :: [Casillero] -> (Integer,Integer) -> Int -> [Casillero]
@@ -603,13 +865,6 @@ devolverCamino ((bool,casillero):xs)
 
 
 
-intersectCercaYPosible :: Casillero -> [Casillero] -> [Casillero]
-intersectCercaYPosible casilla (x:xs) = intersect (casillasPosibles (x:xs)) (casillasCercanas (x:xs) casilla)
-
-posibilidadesCasillero :: Casillero -> [Char]
-posibilidadesCasillero (caracteres,(a,b))
-    | length caracteres >= 4 = drop 4 caracteres
-    | otherwise = take (length caracteres ) caracteres
 
 seMueveDerecha :: Casillero -> Casillero -> Bool
 seMueveDerecha (caracteres,(x,y)) (caracteres2,(a,b)) = (x == a && y+1 == b)
@@ -623,22 +878,7 @@ seMueveArriba (caracteres,(x,y)) (caracteres2,(a,b)) = (x-1 == a && y == b)
 seMueveAbajo :: Casillero -> Casillero -> Bool
 seMueveAbajo (caracteres,(x,y)) (caracteres2,(a,b)) = (x+1 == a && y == b)
 
-buscarEnCasillero :: [Casillero] -> Casillero -> [Casillero]
-buscarEnCasillero [] _ = []
-buscarEnCasillero ((cad1,(x,y)):xs) (cad2,(a,b))
-    | x == a && y == b = ((cad1++cad2,(a,b)):xs)
-    | otherwise = (cad1,(x,y)):(buscarEnCasillero xs (cad2,(a,b)))
 
-eliminarUltimaPosicion :: [Casillero] -> (Integer, Integer) -> [Casillero]
-eliminarUltimaPosicion ((cad1,(x,y)):xs) (a,b)
-    | x == a && y == b = ((drop 1 cad1,(a,b)):xs)
-    | otherwise = (cad1,(x,y)):(eliminarUltimaPosicion xs (a,b))
-
-topeDePila :: [Casillero] -> (Integer, Integer) -> [Char]
-topeDePila ((cad1,(x,y)):xs) (a,b)
-    | x == a && y == b && cad1 /= "" = [last cad1] 
-    | otherwise = topeDePila xs (a,b)
-topeDePila [] (_,_) = error "!"
 
 impresionJuego3x3 :: TakGame -> String
 impresionJuego3x3 juego = unlines $ [(caracterPosicion juego 0) ++ "      " ++  (caracterPosicion juego 1) ++ "      " ++ (caracterPosicion juego 2) ++'\n': 
@@ -692,7 +932,7 @@ cumpleCamino ((caracteres, (x,y)):xs, BlackPlayer) ((xBuscado, yBuscado):ys)
 
 instance Show TakAction where
     show (Insertar (x, y) pared) = if (pared) then
-                                        "| Insertar una pared en " ++ (show (x,y)) ++ " |"
+                                        "| Insertar una pared en " ++ (show (x,y)) ++ " |" 
                                     else
                                         "| Insertar una ficha plana en " ++ (show (x,y)) ++ " |"
 
